@@ -4,10 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>FOCO Diciembre 2025</title>
-  
   <link rel="icon" href="assets/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="assets/logo.png">
-  
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 </head>
@@ -15,41 +13,38 @@
 
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p class="loader-text">Encendiendo tu curiosidad...</p>
-    <p class="loader-subtext">Cargando contenido de alta calidad...</p>
+    <p>Cargando revista...</p>
   </div>
 
   <div class="app">
     <header class="topbar">
       <div class="brand">FOCO</div>
-      <div class="controls">
-        </div>
     </header>
 
-    <main class="book-container-wrapper">
-        <div id="flipbook">
-            </div>
-
-        <div class="nav-arrows">
-            <button class="nav-btn left" id="prevBtn"><span class="material-icons-round">chevron_left</span></button>
-            <button class="nav-btn right" id="nextBtn"><span class="material-icons-round">chevron_right</span></button>
-            
-            <button class="nav-btn restart-btn" id="restartBtn" title="Volver al inicio">
-                <span class="material-icons-round">first_page</span>
-            </button>
+    <div class="book-viewport">
+        <div class="container">
+            <div id="flipbook">
+                </div>
         </div>
-    </main>
+
+        <button class="nav-btn prev-btn" id="prevBtn"><span class="material-icons-round">chevron_left</span></button>
+        <button class="nav-btn next-btn" id="nextBtn"><span class="material-icons-round">chevron_right</span></button>
+        <button class="nav-btn restart-btn" id="restartBtn"><span class="material-icons-round">first_page</span></button>
+    </div>
 
     <footer class="bottom-bar">
-        <span id="pageIndicator">...</span>
+        <span id="pageIndicator">Cargando...</span>
     </footer>
-    
-    <audio id="pageSound" src="assets/sound.MP3" preload="auto"></audio>
-    <audio id="restartSound" src="assets/sound2.mp3" preload="auto"></audio>
+
+    <audio id="pageSound" src="assets/sound.MP3"></audio>
+    <audio id="restartSound" src="assets/sound2.mp3"></audio>
   </div>
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="js/jquery.min.js"></script>
+  
   <script src="js/turn.min.js"></script>
+  
   <script src="js/script.js"></script>
+
 </body>
 </html>
