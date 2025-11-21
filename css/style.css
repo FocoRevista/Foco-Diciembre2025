@@ -22,7 +22,7 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Estilo para el texto de carga (Esto faltaba en tu pegado anterior) */
+/* Estilo para el texto de carga */
 .loader-text {
     color: #fff; letter-spacing: 1px; font-size: 1rem; font-weight: 300; 
     animation: pulseText 2s infinite; text-align: center;
@@ -49,28 +49,30 @@ body {
 }
 
 /* === ESTÉTICA DE PÁGINAS (Fondo CSS) === */
+/* Regla general para páginas interiores */
 #flipbook .page {
     background-color: #fff;
-    /* Esto es lo que hace magia con el JS nuevo: */
-    background-size: 100% 100%; 
+    background-size: 100% 100%; /* Interiores se fuerzan a llenar */
     background-repeat: no-repeat;
     background-position: center center;
 }
 
-/* Sombras internas para dar volumen 3D */
-/* Sombra en el lado izquierdo de la hoja derecha */
-#flipbook .page.odd {
+/* === FIX PORTADA ESTIRADA === */
+/* Las tapas (.hard) usan 'contain' para no deformarse nunca */
+#flipbook .page.hard {
+    background-size: contain !important;
+    background-color: transparent; /* Si sobra espacio, que sea transparente */
+    box-shadow: none; /* Las tapas no llevan la sombra interna de las hojas */
+}
+
+/* Sombras internas para dar volumen 3D solo a hojas interiores */
+#flipbook .page.odd:not(.hard) {
     box-shadow: inset 15px 0 20px -10px rgba(0,0,0,0.3);
 }
-/* Sombra en el lado derecho de la hoja izquierda */
-#flipbook .page.even {
+#flipbook .page.even:not(.hard) {
     box-shadow: inset -15px 0 20px -10px rgba(0,0,0,0.3);
 }
 
-/* Portada y contraportada sin sombra interna */
-#flipbook .page.hard {
-    box-shadow: none;
-}
 
 /* Botones */
 .nav-btn {
@@ -89,6 +91,5 @@ body {
     .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
     .prev-btn { left: 10px; } 
     .next-btn { right: 10px; }
-    /* En móvil quitamos un poco de padding para aprovechar pantalla */
     .book-viewport { padding: 10px; }
 }
