@@ -1,8 +1,7 @@
 /*
-  FOCO Magazine - v9 Final 
-  - Carga TOTAL antes de iniciar
-  - Audio garantizado (interacción "Toca para abrir")
-  - Numeración corregida (1-42)
+  FOCO Magazine - v10 Final Auto-Load
+  - Carga automática sin "Touch to open"
+  - Fix sonido Restart
 */
 
 const config = {
@@ -23,48 +22,29 @@ const els = {
     restartAudio: document.getElementById('restartSound'),
     zoom: document.getElementById('zoomBtn'),
     full: document.getElementById('fullscreenBtn'),
-    loader: document.getElementById('loader'),
-    loaderText: document.getElementById('loaderText'),
-    spinner: document.querySelector('.spinner')
+    loader: document.getElementById('loader')
 };
 
 // --- INICIO ---
 
 async function init() {
-    // 1. Listar todas las imágenes
     const totalFiles = config.endPage - config.startPage + 1;
     for (let i = 0; i < totalFiles; i++) {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // 2. CARGA TOTAL (Bloqueante)
-    // Esperamos a que TODAS las imágenes estén listas
+    // Carga TOTAL bloqueante
     await preloadList(state.images);
 
-    // 3. ESTADO: LISTO
-    // Cambiamos el loader para pedir interacción (necesario para el audio)
-    els.spinner.classList.add('done'); // Oculta el spinner
-    els.loaderText.textContent = "Toca para abrir"; // Mensaje de acción
-    els.loaderText.style.fontWeight = "bold";
-    els.loaderText.style.cursor = "pointer";
+    // --- APERTURA AUTOMÁTICA ---
+    // Ocultamos loader directamente
+    els.loader.classList.add('hidden');
 
-    // 4. EVENTO DE ENTRADA (Un solo clic en cualquier lado)
-    const startExperience = () => {
-        // Reproducir audio inicial
-        playSound(els.audio);
-        
-        // Ocultar loader
-        els.loader.classList.add('hidden');
-        
-        // Quitar listeners
-        document.body.removeEventListener('click', startExperience);
-        document.body.removeEventListener('touchstart', startExperience);
-    };
+    // Intentamos reproducir audio inicial (puede fallar en móviles si no hubo clic previo)
+    // Pero lo intentamos por si acaso es PC
+    playSound(els.audio);
 
-    document.body.addEventListener('click', startExperience);
-    document.body.addEventListener('touchstart', startExperience, {passive:true});
-
-    // Configuración final
+    // Configuración
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -114,12 +94,10 @@ function render() {
 function renderMobile() {
     els.book.appendChild(createPage(state.images[state.currentView], 'single'));
     
-    // Lógica de numeración Móvil
     let label = "";
     if (state.currentView === 0) label = "Portada";
     else if (state.currentView === state.images.length - 1) label = "Contraportada";
-    else label = `Página ${state.currentView}`; // a-25 es Pag 1, a-26 Pag 2... Coincide con índice
-    
+    else label = `Página ${state.currentView}`;
     els.indicator.textContent = label;
 }
 
@@ -136,20 +114,10 @@ function renderDesktop() {
     if (right >= 0 && right < state.images.length) addSpine(rPage, 'right');
     els.book.append(lPage, rPage);
 
-    // Lógica de numeración Escritorio
     let label = '';
-    if (state.currentView === 0) {
-        label = 'Portada';
-    } else if (state.currentView === state.totalViews - 1) {
-        label = 'Contraportada';
-    } else {
-        // a-24 es índice 0 (Portada)
-        // a-25 es índice 1 (Pag 1)
-        // Así que: Indice Imagen = Numero de Página
-        const pLeft = left; 
-        const pRight = right;
-        label = `Págs ${pLeft}-${pRight}`;
-    }
+    if (state.currentView === 0) label = 'Portada';
+    else if (state.currentView === state.totalViews - 1) label = 'Contraportada';
+    else label = `Págs ${left}-${right}`; // Ajuste numérico visual
     els.indicator.textContent = label;
 }
 
@@ -180,7 +148,10 @@ function flip(dir) {
 }
 
 function restartApp() {
-    playSound(els.restartAudio);
+    // Al hacer clic en el botón, el navegador permite el audio 100% seguro
+    els.restartAudio.currentTime = 0;
+    els.restartAudio.play().catch(e => console.log("Error audio restart:", e));
+    
     els.book.classList.add('rewinding');
     setTimeout(() => {
         state.currentView = 0;
@@ -199,6 +170,7 @@ function updateControls() {
 
 function playSound(audioEl) {
     audioEl.currentTime = 0;
+    // El .catch evita errores en consola si el navegador bloquea el autoplay inicial
     audioEl.play().catch(() => {});
 }
 
