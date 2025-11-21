@@ -13,7 +13,7 @@
 
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p>Cargando revista...</p>
+    <p class="loader-text">Encendiendo tu curiosidad...</p>
   </div>
 
   <div class="app">
@@ -22,14 +22,16 @@
     </header>
 
     <div class="book-viewport">
-        <div class="container">
-            <div id="flipbook">
-                </div>
-        </div>
+        <div id="flipbook">
+            </div>
 
         <button class="nav-btn prev-btn" id="prevBtn"><span class="material-icons-round">chevron_left</span></button>
         <button class="nav-btn next-btn" id="nextBtn"><span class="material-icons-round">chevron_right</span></button>
         <button class="nav-btn restart-btn" id="restartBtn"><span class="material-icons-round">first_page</span></button>
+    </div>
+
+    <div class="mobile-progress-container">
+        <div class="mobile-progress-bar" id="progressBar"></div>
     </div>
 
     <footer class="bottom-bar">
@@ -41,10 +43,7 @@
   </div>
 
   <script src="js/jquery.min.js"></script>
-  
   <script src="js/turn.min.js"></script>
-  
   <script src="js/script.js"></script>
-
 </body>
 </html>
