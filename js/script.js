@@ -1,7 +1,7 @@
 /*
-  FOCO Magazine - v3 Final
-  - Precarga agresiva (carga todo antes de mostrar)
-  - Eliminación de bugs visuales
+  FOCO Magazine - v6 Final (iPhone Fix)
+  - Corrección Loader fantasma
+  - Fix botón Fullscreen en iOS
 */
 
 const config = {
@@ -16,8 +16,7 @@ const state = {
     currentView: 0,
     totalViews: 0,
     isMobile: false,
-    isZoomed: false,
-    loadedImages: 0 // Contador interno
+    isZoomed: false
 };
 
 const els = {
@@ -28,25 +27,43 @@ const els = {
     audio: document.getElementById('pageSound'),
     zoom: document.getElementById('zoomBtn'),
     full: document.getElementById('fullscreenBtn'),
-    loader: document.getElementById('loader') // Referencia al loader
+    loader: document.getElementById('loader'),
+    spinner: document.querySelector('.spinner'),
+    loaderText: document.querySelector('.loader-text'),
+    startBtn: document.getElementById('startBtn')
 };
 
 // --- INICIO ---
 
 async function init() {
-    // 1. Generar lista de rutas
     const totalFiles = config.endPage - config.startPage + 1;
     for (let i = 0; i < totalFiles; i++) {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // 2. PRECARGA MASIVA
-    // Esto pausa la app hasta que todas las imagenes se descarguen
-    await preloadAllImages();
+    // Precarga Inteligente (8 primeras)
+    const criticalCount = 8;
+    await preloadList(state.images.slice(0, criticalCount));
 
-    // 3. Iniciar App
-    els.loader.classList.add('hidden'); // Ocultar loader
-    
+    // Mostrar botón entrar
+    els.spinner.style.display = 'none';
+    els.loaderText.textContent = ""; 
+    els.startBtn.style.display = 'block';
+
+    // Cargar resto en background
+    preloadList(state.images.slice(criticalCount));
+
+    els.startBtn.onclick = startApp;
+}
+
+function startApp() {
+    els.audio.play().then(() => {
+        els.audio.pause();
+        els.audio.currentTime = 0;
+    }).catch(e => {});
+
+    els.loader.classList.add('hidden');
+
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -56,33 +73,26 @@ async function init() {
 
     calculateViews();
     render();
-
-    // Eventos
+    setupSwipe();
+    
     els.next.onclick = () => flip('next');
     els.prev.onclick = () => flip('prev');
     els.zoom.onclick = toggleZoom;
-    els.full.onclick = toggleFullscreen;
+    els.full.onclick = toggleFullscreen; // Nueva lógica aquí
     
     document.addEventListener('keydown', e => {
         if (e.key === 'ArrowRight') flip('next');
         if (e.key === 'ArrowLeft') flip('prev');
     });
-
-    setupSwipe();
 }
 
-// Función para forzar la descarga de todo
-function preloadAllImages() {
-    return Promise.all(
-        state.images.map(src => {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.src = src;
-                img.onload = resolve;
-                img.onerror = resolve; // Si falla una, seguimos igual
-            });
-        })
-    );
+function preloadList(list) {
+    return Promise.all(list.map(src => new Promise(resolve => {
+        const img = new Image();
+        img.src = src;
+        img.onload = resolve;
+        img.onerror = resolve;
+    })));
 }
 
 function checkMode() {
@@ -98,8 +108,6 @@ function calculateViews() {
     if (state.currentView >= state.totalViews) state.currentView = 0;
     render();
 }
-
-// --- RENDERIZADO ---
 
 function render() {
     els.book.innerHTML = '';
@@ -117,28 +125,21 @@ function renderMobile() {
 
 function renderDesktop() {
     let leftImgIdx, rightImgIdx;
-
     if (state.currentView === 0) {
-        leftImgIdx = -1; 
-        rightImgIdx = 0;
+        leftImgIdx = -1; rightImgIdx = 0;
     } else if (state.currentView === state.totalViews - 1 && state.images.length % 2 === 0) {
-        leftImgIdx = (state.currentView * 2) - 1;
-        rightImgIdx = -1; 
+        leftImgIdx = (state.currentView * 2) - 1; rightImgIdx = -1; 
     } else {
-        leftImgIdx = (state.currentView * 2) - 1;
-        rightImgIdx = leftImgIdx + 1;
+        leftImgIdx = (state.currentView * 2) - 1; rightImgIdx = leftImgIdx + 1;
     }
 
     const leftPage = createPage(state.images[leftImgIdx], 'left-page');
     const rightPage = createPage(state.images[rightImgIdx], 'right-page');
-    
     if (leftImgIdx >= 0) addSpine(leftPage, 'left');
     if (rightImgIdx >= 0 && rightImgIdx < state.images.length) addSpine(rightPage, 'right');
-
     els.book.appendChild(leftPage);
     els.book.appendChild(rightPage);
 
-    // Textos indicador
     let label = '';
     if (state.currentView === 0) label = 'Portada';
     else if (state.currentView === state.totalViews - 1) label = 'Contraportada';
@@ -149,11 +150,9 @@ function renderDesktop() {
 function createPage(src, className) {
     const wrapper = document.createElement('div');
     wrapper.className = `page-wrapper ${className}`;
-    
     if (src && src.indexOf('undefined') === -1) {
         const img = document.createElement('img');
         img.src = src;
-        // Ya no usamos loading=lazy porque precargamos todo al inicio
         wrapper.appendChild(img);
     }
     return wrapper;
@@ -165,8 +164,6 @@ function addSpine(el, side) {
     el.appendChild(spine);
 }
 
-// --- ACCIONES ---
-
 function flip(dir) {
     if (dir === 'next') {
         if (state.currentView >= state.totalViews - 1) return;
@@ -175,17 +172,14 @@ function flip(dir) {
         if (state.currentView <= 0) return;
         state.currentView--;
     }
-    
     playSound();
-    
     els.book.style.transform = 'scale(0.98)';
     els.book.style.opacity = '0.9';
-    
     setTimeout(() => {
         render();
         els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
         els.book.style.opacity = '1';
-    }, 100); // Super rápido
+    }, 100);
 }
 
 function updateControls() {
@@ -209,9 +203,22 @@ function toggleZoom() {
         : '<span class="material-icons-round">zoom_in</span>';
 }
 
+/* LÓGICA FULLSCREEN HÍBRIDA */
 function toggleFullscreen() {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
+    // Intento 1: API Estándar (Android/PC)
+    if (document.documentElement.requestFullscreen) {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+    } 
+    // Intento 2: Safari viejo
+    else if (document.documentElement.webkitRequestFullscreen) {
+        if (!document.webkitFullscreenElement) document.documentElement.webkitRequestFullscreen();
+        else document.webkitExitFullscreen();
+    } 
+    // Intento 3: iPhone/iPad Moderno (CSS Fallback)
+    else {
+        document.body.classList.toggle('fullscreen-active');
+    }
 }
 
 function setupSwipe() {
