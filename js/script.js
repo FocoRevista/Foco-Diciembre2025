@@ -1,36 +1,30 @@
 /*
-  FOCO Magazine - v6 Final (iPhone Fix)
-  - Corrección Loader fantasma
-  - Fix botón Fullscreen en iOS
+  FOCO Magazine - v8 Final Loader Automático
+  - Loader visual sin interacción requerida
+  - Tiempo mínimo de carga para elegancia
+  - Carga optimizada en background
 */
 
 const config = {
-    startPage: 24, 
-    endPage: 67,
-    path: 'pages/a-',
-    ext: '.png'
+    startPage: 24, endPage: 67, path: 'pages/a-', ext: '.png'
 };
 
 const state = {
-    images: [],
-    currentView: 0,
-    totalViews: 0,
-    isMobile: false,
-    isZoomed: false
+    images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false,
+    audioUnlocked: false
 };
 
 const els = {
     book: document.getElementById('book'),
     prev: document.getElementById('prevBtn'),
     next: document.getElementById('nextBtn'),
+    restart: document.getElementById('restartBtn'),
     indicator: document.getElementById('pageIndicator'),
     audio: document.getElementById('pageSound'),
+    restartAudio: document.getElementById('restartSound'),
     zoom: document.getElementById('zoomBtn'),
     full: document.getElementById('fullscreenBtn'),
-    loader: document.getElementById('loader'),
-    spinner: document.querySelector('.spinner'),
-    loaderText: document.querySelector('.loader-text'),
-    startBtn: document.getElementById('startBtn')
+    loader: document.getElementById('loader')
 };
 
 // --- INICIO ---
@@ -41,45 +35,53 @@ async function init() {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // Precarga Inteligente (8 primeras)
-    const criticalCount = 8;
-    await preloadList(state.images.slice(0, criticalCount));
+    // --- ESTRATEGIA DE CARGA ---
+    // 1. Promesa de tiempo mínimo (2.5 segundos) para que se vea el logo y el mensaje
+    const minimumTime = new Promise(resolve => setTimeout(resolve, 2500));
 
-    // Mostrar botón entrar
-    els.spinner.style.display = 'none';
-    els.loaderText.textContent = ""; 
-    els.startBtn.style.display = 'block';
+    // 2. Promesa de carga real (Primeras 6 imágenes críticas)
+    const criticalImages = state.images.slice(0, 6);
+    const loadingTask = preloadList(criticalImages);
 
-    // Cargar resto en background
-    preloadList(state.images.slice(criticalCount));
+    // Esperamos a que AMBAS se cumplan (tiempo + carga)
+    await Promise.all([minimumTime, loadingTask]);
 
-    els.startBtn.onclick = startApp;
-}
+    // --- DESBLOQUEO UI ---
+    els.loader.classList.add('hidden'); // Fade out elegante
+    
+    // Cargar el resto en segundo plano
+    preloadList(state.images.slice(6));
 
-function startApp() {
-    els.audio.play().then(() => {
-        els.audio.pause();
-        els.audio.currentTime = 0;
-    }).catch(e => {});
-
-    els.loader.classList.add('hidden');
-
+    // Iniciar lógica
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
         checkMode();
         if (wasMobile !== state.isMobile) calculateViews();
     });
-
     calculateViews();
     render();
     setupSwipe();
-    
+    setupControls();
+
+    // Truco para intentar activar audio en primer toque
+    const unlockAudio = () => {
+        if(!state.audioUnlocked) {
+            els.audio.play().then(()=> { els.audio.pause(); els.audio.currentTime=0; }).catch(()=>{});
+            els.restartAudio.play().then(()=> { els.restartAudio.pause(); els.restartAudio.currentTime=0; }).catch(()=>{});
+            state.audioUnlocked = true;
+        }
+    };
+    document.addEventListener('click', unlockAudio, {once:true});
+    document.addEventListener('touchstart', unlockAudio, {once:true, passive:true});
+}
+
+function setupControls() {
     els.next.onclick = () => flip('next');
     els.prev.onclick = () => flip('prev');
+    els.restart.onclick = restartApp;
     els.zoom.onclick = toggleZoom;
-    els.full.onclick = toggleFullscreen; // Nueva lógica aquí
-    
+    els.full.onclick = toggleFullscreen;
     document.addEventListener('keydown', e => {
         if (e.key === 'ArrowRight') flip('next');
         if (e.key === 'ArrowLeft') flip('prev');
@@ -88,148 +90,118 @@ function startApp() {
 
 function preloadList(list) {
     return Promise.all(list.map(src => new Promise(resolve => {
-        const img = new Image();
-        img.src = src;
-        img.onload = resolve;
-        img.onerror = resolve;
+        const img = new Image(); img.src = src; img.onload = resolve; img.onerror = resolve;
     })));
 }
 
-function checkMode() {
-    state.isMobile = window.innerWidth < 768;
-}
+function checkMode() { state.isMobile = window.innerWidth < 768; }
 
 function calculateViews() {
-    if (state.isMobile) {
-        state.totalViews = state.images.length;
-    } else {
-        state.totalViews = Math.ceil(state.images.length / 2) + 1;
-    }
+    state.totalViews = state.isMobile ? state.images.length : Math.ceil(state.images.length / 2) + 1;
     if (state.currentView >= state.totalViews) state.currentView = 0;
     render();
 }
 
+// --- RENDER ---
+
 function render() {
     els.book.innerHTML = '';
-    if (state.isMobile) renderMobile();
-    else renderDesktop();
+    state.isMobile ? renderMobile() : renderDesktop();
     updateControls();
 }
 
 function renderMobile() {
-    const imgIndex = state.currentView;
-    const page = createPage(state.images[imgIndex], 'single');
-    els.book.appendChild(page);
-    els.indicator.textContent = `${imgIndex + 1} / ${state.images.length}`;
+    els.book.appendChild(createPage(state.images[state.currentView], 'single'));
+    els.indicator.textContent = `${state.currentView + 1} / ${state.images.length}`;
 }
 
 function renderDesktop() {
-    let leftImgIdx, rightImgIdx;
-    if (state.currentView === 0) {
-        leftImgIdx = -1; rightImgIdx = 0;
-    } else if (state.currentView === state.totalViews - 1 && state.images.length % 2 === 0) {
-        leftImgIdx = (state.currentView * 2) - 1; rightImgIdx = -1; 
-    } else {
-        leftImgIdx = (state.currentView * 2) - 1; rightImgIdx = leftImgIdx + 1;
-    }
+    let left, right;
+    if (state.currentView === 0) { left = -1; right = 0; }
+    else if (state.currentView === state.totalViews - 1 && state.images.length % 2 === 0) {
+        left = (state.currentView * 2) - 1; right = -1; 
+    } else { left = (state.currentView * 2) - 1; right = left + 1; }
 
-    const leftPage = createPage(state.images[leftImgIdx], 'left-page');
-    const rightPage = createPage(state.images[rightImgIdx], 'right-page');
-    if (leftImgIdx >= 0) addSpine(leftPage, 'left');
-    if (rightImgIdx >= 0 && rightImgIdx < state.images.length) addSpine(rightPage, 'right');
-    els.book.appendChild(leftPage);
-    els.book.appendChild(rightPage);
+    const lPage = createPage(state.images[left], 'left-page');
+    const rPage = createPage(state.images[right], 'right-page');
+    if (left >= 0) addSpine(lPage, 'left');
+    if (right >= 0 && right < state.images.length) addSpine(rPage, 'right');
+    els.book.append(lPage, rPage);
 
-    let label = '';
-    if (state.currentView === 0) label = 'Portada';
-    else if (state.currentView === state.totalViews - 1) label = 'Contraportada';
-    else label = `Págs ${leftImgIdx+24}-${rightImgIdx+24}`;
+    let label = state.currentView === 0 ? 'Portada' : (state.currentView === state.totalViews - 1 ? 'Contraportada' : `Págs ${left+24}-${right+24}`);
     els.indicator.textContent = label;
 }
 
 function createPage(src, className) {
-    const wrapper = document.createElement('div');
-    wrapper.className = `page-wrapper ${className}`;
-    if (src && src.indexOf('undefined') === -1) {
-        const img = document.createElement('img');
-        img.src = src;
-        wrapper.appendChild(img);
-    }
+    const wrapper = document.createElement('div'); wrapper.className = `page-wrapper ${className}`;
+    if (src) { const img = document.createElement('img'); img.src = src; wrapper.appendChild(img); }
     return wrapper;
 }
 
 function addSpine(el, side) {
-    const spine = document.createElement('div');
-    spine.className = 'shadow-spine';
-    el.appendChild(spine);
+    const spine = document.createElement('div'); spine.className = 'shadow-spine'; el.appendChild(spine);
 }
 
+// --- ACCIONES ---
+
 function flip(dir) {
-    if (dir === 'next') {
-        if (state.currentView >= state.totalViews - 1) return;
-        state.currentView++;
-    } else {
-        if (state.currentView <= 0) return;
-        state.currentView--;
+    if (dir === 'next') { if (state.currentView >= state.totalViews - 1) return; state.currentView++; }
+    else { if (state.currentView <= 0) return; state.currentView--; }
+    
+    // Intento de reproducir sonido
+    if(state.audioUnlocked) {
+        els.audio.currentTime = 0;
+        els.audio.play().catch(()=>{});
     }
-    playSound();
-    els.book.style.transform = 'scale(0.98)';
-    els.book.style.opacity = '0.9';
+    
+    els.book.style.transform = 'scale(0.98)'; els.book.style.opacity = '0.8';
     setTimeout(() => {
         render();
         els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
         els.book.style.opacity = '1';
-    }, 100);
+    }, 150);
+}
+
+function restartApp() {
+    if(state.audioUnlocked) {
+        els.restartAudio.currentTime = 0;
+        els.restartAudio.play().catch(()=>{});
+    }
+    els.book.classList.add('rewinding');
+    setTimeout(() => {
+        state.currentView = 0;
+        render();
+        els.book.classList.remove('rewinding');
+    }, 500);
 }
 
 function updateControls() {
+    const isLastPage = state.currentView >= state.totalViews - 1;
     els.prev.disabled = state.currentView === 0;
-    els.next.disabled = state.currentView >= state.totalViews - 1;
+    els.next.style.display = isLastPage ? 'none' : 'flex';
+    els.restart.style.display = isLastPage ? 'flex' : 'none';
     els.prev.style.opacity = els.prev.disabled ? '0' : '1';
-    els.next.style.opacity = els.next.disabled ? '0' : '1';
-}
-
-function playSound() {
-    els.audio.currentTime = 0;
-    els.audio.play().catch(() => {});
 }
 
 function toggleZoom() {
     state.isZoomed = !state.isZoomed;
     els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
     els.book.style.cursor = state.isZoomed ? 'grab' : 'default';
-    els.zoom.innerHTML = state.isZoomed 
-        ? '<span class="material-icons-round">zoom_out</span>' 
-        : '<span class="material-icons-round">zoom_in</span>';
+    els.zoom.innerHTML = state.isZoomed ? '<span class="material-icons-round">zoom_out</span>' : '<span class="material-icons-round">zoom_in</span>';
 }
 
-/* LÓGICA FULLSCREEN HÍBRIDA */
 function toggleFullscreen() {
-    // Intento 1: API Estándar (Android/PC)
     if (document.documentElement.requestFullscreen) {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        else document.exitFullscreen();
-    } 
-    // Intento 2: Safari viejo
-    else if (document.documentElement.webkitRequestFullscreen) {
-        if (!document.webkitFullscreenElement) document.documentElement.webkitRequestFullscreen();
-        else document.webkitExitFullscreen();
-    } 
-    // Intento 3: iPhone/iPad Moderno (CSS Fallback)
-    else {
-        document.body.classList.toggle('fullscreen-active');
-    }
+        !document.fullscreenElement ? document.documentElement.requestFullscreen() : document.exitFullscreen();
+    } else { document.body.classList.toggle('fullscreen-active'); }
 }
 
 function setupSwipe() {
     let startX = 0;
-    els.book.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+    els.book.addEventListener('touchstart', e => startX = e.touches[0].clientX, {passive:true});
     els.book.addEventListener('touchend', e => {
         const diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 50) {
-            if (diff > 0) flip('next');
-            else flip('prev');
-        }
+        if (Math.abs(diff) > 50) diff > 0 ? flip('next') : flip('prev');
     });
 }
 
