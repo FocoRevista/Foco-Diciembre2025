@@ -2,29 +2,39 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Revista — Flipbook 3D Deluxe</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>FOCO — Edición Diciembre 2025</title>
   <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 </head>
 <body>
 
   <div class="app">
     <header class="topbar">
-      <button id="zoomBtn" title="Zoom (doble clic)">🔍</button>
-      <button id="fullscreenBtn" title="Pantalla completa">⤢</button>
-      <div class="pager"> <span id="curSpread">1</span> / <span id="totalSpread">22</span> </div>
+      <div class="brand">FOCO</div>
+      <div class="controls">
+        <button id="zoomBtn" title="Zoom" class="icon-btn"><span class="material-icons-round">zoom_in</span></button>
+        <button id="fullscreenBtn" title="Pantalla completa" class="icon-btn"><span class="material-icons-round">fullscreen</span></button>
+      </div>
     </header>
 
     <main class="book-wrap">
-      <div id="book" class="book" tabindex="0">
-        <!-- Hojas generadas dinámicamente -->
-      </div>
+      <div id="book" class="book">
+        </div>
 
-      <button class="nav left" id="prevBtn" aria-label="Anterior">‹</button>
-      <button class="nav right" id="nextBtn" aria-label="Siguiente">›</button>
+      <button class="nav left" id="prevBtn" aria-label="Anterior">
+        <span class="material-icons-round">chevron_left</span>
+      </button>
+      <button class="nav right" id="nextBtn" aria-label="Siguiente">
+        <span class="material-icons-round">chevron_right</span>
+      </button>
     </main>
 
-    <audio id="pageSound" src="sound.mp3" preload="auto"></audio>
+    <footer class="bottom-bar">
+        <span id="pageIndicator">Cargando...</span>
+    </footer>
+
+    <audio id="pageSound" src="assets/sound.MP3" preload="auto"></audio>
   </div>
 
   <script src="js/script.js"></script>
