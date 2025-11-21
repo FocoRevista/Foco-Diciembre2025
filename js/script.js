@@ -1,173 +1,208 @@
 /*
-  FOCO Magazine - Turn.js Final V2
-  - Carga TOTAL bloqueante (Evita páginas blancas)
-  - Botón Reiniciar funcional
-  - Audio Unlock
+  FOCO Magazine - Turn.js Fixed
+  - Portada con proporción correcta (Sin estiramiento)
+  - Bloqueo de doble clic (Debounce)
+  - Estética mejorada
 */
 
 const config = {
     startPage: 24, endPage: 67, path: 'pages/a-', ext: '.png'
 };
 
-let flipbookEl = $('#flipbook');
+let flipbook = $('#flipbook');
 let totalPages = config.endPage - config.startPage + 1;
+let isAnimating = false; // Candado para evitar doble clic
 let audioUnlocked = false;
 
-$(document).ready(async function() {
+// Proporción de UNA sola página (Ancho / Alto)
+// Ejemplo A4: 210 / 297 = ~0.707
+// Ajusta este número si tus imágenes son cuadradas (1) o más anchas.
+const PAGE_ASPECT_RATIO = 0.707; 
+
+$(document).ready(function() {
     
-    // 1. Generar lista de imágenes
-    let imagesToLoad = [];
+    // 1. Cargar imágenes
+    let images = [];
     for (let i = 0; i < totalPages; i++) {
-        imagesToLoad.push(`${config.path}${config.startPage + i}${config.ext}`);
+        images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // 2. CARGA BLOQUEANTE (Esperar a todas)
-    // Esto garantiza que no haya paginas blancas, aunque el loader dure más.
-    try {
-        await preloadImages(imagesToLoad);
-    } catch (e) {
-        console.log("Alguna imagen falló, pero continuamos.");
-    }
-
-    // 3. Inyectar HTML en Turn.js
-    imagesToLoad.forEach((src, index) => {
-        // Sin loading=lazy porque ya las precargamos
-        let className = (index === 0 || index === totalPages - 1) ? 'hard' : 'page';
-        flipbookEl.append(`<div class="${className}"><img src="${src}"></div>`);
+    // Precargar para evitar páginas blancas
+    preloadImages(images).then(() => {
+        initBook(images);
+        $('.loader-container').fadeOut(500);
     });
 
-    // 4. Inicializar Turn.js
-    let size = calculateBoundaries();
-    flipbookEl.turn({
+    // Desbloqueo audio
+    $(document).on('touchstart click', function() {
+        if(!audioUnlocked) {
+            unlockAudio();
+            audioUnlocked = true;
+        }
+    });
+});
+
+function initBook(images) {
+    // Insertar HTML
+    images.forEach((src, i) => {
+        // La primera y última son 'hard' (duras) para efecto tapa
+        let className = (i === 0 || i === images.length - 1) ? 'hard' : 'page';
+        flipbook.append(`<div class="${className}"><img src="${src}"></div>`);
+    });
+
+    // Calcular tamaño inicial
+    let size = calculateSize();
+
+    // Iniciar Turn.js
+    flipbook.turn({
         width: size.width,
         height: size.height,
-        autoCenter: true,
-        gradients: true,
-        acceleration: true,
         display: size.display,
+        autoCenter: true,
+        gradients: true, // Sombras realistas
+        acceleration: true,
         elevation: 50,
+        duration: 1000, // 1 segundo por vuelta
         when: {
-            turned: function(e, page) {
-                updateControls(page);
+            start: function() {
+                isAnimating = true; // Bloquear botones
                 playSound('flip');
+            },
+            turned: function(e, page) {
+                isAnimating = false; // Desbloquear botones
+                updateUI(page);
+            },
+            end: function() {
+                isAnimating = false; // Asegurar desbloqueo
             }
         }
     });
 
-    // 5. Ocultar Loader
-    $('.loader-container').addClass('hidden');
-    flipbookEl.css('opacity', 1);
+    // Mostrar libro
+    flipbook.animate({opacity: 1}, 500);
+    updateUI(1);
 
-    // 6. Eventos
-    setupControls();
-    
-    // 7. Audio Unlock (Primer toque)
-    const unlockAudio = () => {
-        if(audioUnlocked) return;
-        let a1 = document.getElementById('pageSound');
-        let a2 = document.getElementById('restartSound');
-        [a1, a2].forEach(a => {
-            a.muted = true; 
-            a.play().then(() => { a.pause(); a.currentTime=0; a.muted=false; }).catch(()=>{});
-        });
-        audioUnlocked = true;
-        document.removeEventListener('touchstart', unlockAudio);
-        document.removeEventListener('click', unlockAudio);
-    };
-    document.addEventListener('touchstart', unlockAudio, {passive:true});
-    document.addEventListener('click', unlockAudio);
-
-    $(window).resize(function() { resizeBook(); });
-    updateControls(1);
-});
-
-// --- FUNCIONES ---
-
-function preloadImages(urls) {
-    // Devuelve una promesa que se resuelve cuando TODAS las imágenes cargan
-    const promises = urls.map(src => {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.src = src;
-            img.onload = resolve;
-            img.onerror = resolve; // Si falla, resolvemos igual para no trabar todo
-        });
+    // Controles
+    $('#prevBtn').click(() => {
+        if (isAnimating) return; // SI ESTÁ ANIMANDO, IGNORAR CLIC
+        flipbook.turn('previous');
     });
-    return Promise.all(promises);
-}
 
-function setupControls() {
-    $('#prevBtn').click(() => flipbookEl.turn('previous'));
-    $('#nextBtn').click(() => flipbookEl.turn('next'));
-    
-    // Lógica RESTART
+    $('#nextBtn').click(() => {
+        if (isAnimating) return; // SI ESTÁ ANIMANDO, IGNORAR CLIC
+        flipbook.turn('next');
+    });
+
     $('#restartBtn').click(() => {
+        if (isAnimating) return;
         playSound('restart');
-        flipbookEl.turn('page', 1); // Turn.js tiene animación nativa de regreso
+        flipbook.turn('page', 1);
     });
 
-    $(document).keydown(function(e) {
-        if (e.keyCode == 37) flipbookEl.turn('previous');
-        if (e.keyCode == 39) flipbookEl.turn('next');
+    // Responsividad
+    $(window).resize(() => {
+        let newSize = calculateSize();
+        flipbook.turn('size', newSize.width, newSize.height);
+        flipbook.turn('display', newSize.display);
     });
 }
 
-function updateControls(page) {
-    let total = flipbookEl.turn('pages');
+function calculateSize() {
+    let w = $(window).width();
+    let h = $(window).height();
+    let isMobile = w < 768;
     
-    // Indicador de página
+    // Márgenes de seguridad
+    let availableW = w * 0.95;
+    let availableH = h * 0.85;
+
+    let bookW, bookH;
+
+    if (isMobile) {
+        // MÓVIL: Vista sencilla ('single')
+        // El libro mide lo que mide UNA página
+        bookH = availableH;
+        bookW = bookH * PAGE_ASPECT_RATIO;
+        
+        // Si se sale de ancho
+        if (bookW > availableW) {
+            bookW = availableW;
+            bookH = bookW / PAGE_ASPECT_RATIO;
+        }
+        
+        return { width: bookW, height: bookH, display: 'single' };
+        
+    } else {
+        // ESCRITORIO: Vista doble ('double')
+        // El libro mide DOS veces el ancho de una página
+        bookH = availableH;
+        let singlePageW = bookH * PAGE_ASPECT_RATIO;
+        bookW = singlePageW * 2;
+
+        // Si se sale de ancho
+        if (bookW > availableW) {
+            bookW = availableW;
+            singlePageW = bookW / 2;
+            bookH = singlePageW / PAGE_ASPECT_RATIO;
+        }
+
+        return { width: bookW, height: bookH, display: 'double' };
+    }
+}
+
+function updateUI(page) {
+    let total = flipbook.turn('pages');
     let label = `Página ${page} / ${total}`;
     if (page === 1) label = "Portada";
-    else if (page >= total) label = "Contraportada";
+    if (page === total) label = "Contraportada";
+    
     $('#pageIndicator').text(label);
 
-    // Mostrar/Ocultar botones
-    if (page === 1) $('#prevBtn').css('opacity', 0);
-    else $('#prevBtn').css('opacity', 1);
-
-    // Botón siguiente vs Reiniciar
-    if (page >= total) {
+    // Lógica botones
+    if (page === 1) $('#prevBtn').hide(); else $('#prevBtn').show();
+    
+    if (page === total) {
         $('#nextBtn').hide();
-        $('#restartBtn').css('display', 'flex'); // Mostrar reiniciar
+        $('#restartBtn').css('display', 'flex');
     } else {
         $('#nextBtn').show();
         $('#restartBtn').hide();
     }
 }
 
+function preloadImages(urls) {
+    let loaded = 0;
+    return new Promise(resolve => {
+        if (urls.length === 0) resolve();
+        urls.forEach(src => {
+            let img = new Image();
+            img.src = src;
+            img.onload = () => {
+                loaded++;
+                if (loaded === urls.length) resolve();
+            };
+            img.onerror = () => { // Si falla una, seguimos igual
+                loaded++; 
+                if (loaded === urls.length) resolve();
+            };
+        });
+        // Seguridad: Si tarda mas de 5s, iniciar igual
+        setTimeout(resolve, 5000);
+    });
+}
+
+function unlockAudio() {
+    let a1 = document.getElementById('pageSound');
+    let a2 = document.getElementById('restartSound');
+    if(a1) { a1.muted = true; a1.play().catch(()=>{}); a1.pause(); a1.currentTime=0; a1.muted=false; }
+    if(a2) { a2.muted = true; a2.play().catch(()=>{}); a2.pause(); a2.currentTime=0; a2.muted=false; }
+}
+
 function playSound(type) {
     let id = type === 'restart' ? 'restartSound' : 'pageSound';
     let audio = document.getElementById(id);
-    if (audio && (audio.readyState >= 2 || audioUnlocked)) {
+    if (audio) {
         audio.currentTime = 0;
         audio.play().catch(()=>{});
     }
-}
-
-function calculateBoundaries() {
-    let wrapperW = $('.book-container-wrapper').width();
-    let wrapperH = $('.book-container-wrapper').height();
-    let isMobile = wrapperW < 768;
-    let aspectRatio = isMobile ? (1/1.414) : 1.414; 
-
-    let newWidth, newHeight;
-    if (isMobile) {
-        newWidth = wrapperW * 0.95;
-        newHeight = newWidth / aspectRatio;
-        if (newHeight > wrapperH * 0.9) {
-             newHeight = wrapperH * 0.9; newWidth = newHeight * aspectRatio;
-        }
-    } else {
-        newHeight = wrapperH * 0.9; newWidth = newHeight * aspectRatio;
-        if (newWidth > wrapperW * 0.95) {
-            newWidth = wrapperW * 0.95; newHeight = newWidth / aspectRatio;
-        }
-    }
-    return { width: newWidth, height: newHeight, display: isMobile ? 'single' : 'double' };
-}
-
-function resizeBook() {
-    let size = calculateBoundaries();
-    flipbookEl.turn('size', size.width, size.height);
-    flipbookEl.turn('display', size.display);
 }
