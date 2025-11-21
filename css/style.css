@@ -7,7 +7,7 @@ html, body {
 
 body {
   background: radial-gradient(circle at center, #2b2b2b 0%, #111 100%);
-  color: #fff; font-family: sans-serif;
+  color: #fff; font-family: 'Inter', sans-serif;
   display: flex; flex-direction: column;
 }
 
@@ -15,69 +15,77 @@ body {
 .loader-container {
   position: fixed; inset: 0; background: #111; z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: opacity 0.5s;
+  transition: opacity 0.8s ease;
 }
+.loader-container.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
 .spinner {
-  width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2);
-  border-top-color: #fff; border-radius: 50%; animation: spin 1s infinite linear; margin-bottom: 15px;
+  width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 1s linear infinite; margin-bottom: 20px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* === LAYOUT PRINCIPAL === */
+.loader-text { color: #fff; font-size: 1.1rem; letter-spacing: 1px; animation: pulse 2s infinite; }
+.loader-subtext { color: #666; font-size: 0.8rem; margin-top: 10px; }
+@keyframes pulse { 50% { opacity: 0.7; } }
+
+/* === LAYOUT === */
 .app { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
 
 .topbar, .bottom-bar {
   padding: 10px 20px; background: rgba(0,0,0,0.3); flex-shrink: 0; z-index: 100;
 }
-.brand { font-weight: bold; letter-spacing: 1px; }
-.bottom-bar { text-align: center; font-size: 0.8rem; color: #aaa; }
+.brand { font-weight: 700; letter-spacing: 1px; }
+.bottom-bar { text-align: center; font-size: 0.85rem; color: #aaa; }
 
-/* === CONTENEDOR DEL LIBRO (WRAPPER) === */
+/* === LIBRO === */
 .book-container-wrapper {
-    flex-grow: 1;
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    padding: 20px 0;
+    flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
+    overflow: hidden; padding: 20px 0;
 }
 
-/* === ESTILOS NECESARIOS PARA TURN.JS === */
 #flipbook {
-    /* Turn.js necesita un tamaño inicial, luego lo ajustamos con JS */
-    width: 960px;
-    height: 600px;
-    transition: opacity 0.5s;
-    opacity: 0; /* Oculto hasta que cargue */
+    width: 960px; height: 600px;
+    transition: opacity 0.5s; opacity: 0;
+    background: transparent !important;
 }
 
 #flipbook .page {
-    background-color: white;
-    box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    background-color: transparent !important;
+    box-shadow: none !important;
 }
 
 #flipbook .page img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* Asegura que la imagen se vea completa */
+    width: 100%; height: 100%;
+    object-fit: contain; /* CRÍTICO: Evita estiramiento */
     display: block;
-    /* Fix para evitar que se arrastre la imagen fantasma en navegadores */
-    -webkit-user-drag: none;
-    user-select: none;
+    -webkit-user-drag: none; user-select: none;
 }
 
-/* === NAVEGACIÓN === */
+/* === CONTROLES === */
 .nav-arrows {
   position: absolute; width: 100%; top: 50%; transform: translateY(-50%);
   display: flex; justify-content: space-between; pointer-events: none; padding: 0 10px; z-index: 200;
 }
+
 .nav-btn {
-  pointer-events: all; background: rgba(0,0,0,0.5); color: white; border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  pointer-events: all; background: rgba(255,255,255,0.1); backdrop-filter: blur(5px);
+  border: 1px solid rgba(255,255,255,0.2); color: white;
+  border-radius: 50%; width: 50px; height: 50px; 
+  display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
 }
+.nav-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
+
+/* Botón de reinicio oculto por defecto */
+.restart-btn {
+  background: rgba(255, 215, 0, 0.3); color: #ffd700; display: none; border-color: #ffd700;
+}
+.restart-btn:hover { background: rgba(255, 215, 0, 0.5); }
 
 /* MÓVIL */
 @media (max-width: 768px) {
-    .book-container-wrapper { padding: 10px 0; }
+    .book-container-wrapper { padding: 10px 0; box-shadow: none; }
+    .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
 }
