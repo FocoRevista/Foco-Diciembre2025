@@ -1,1 +1,32 @@
-<!-- index.html placeholder. Replace with your canvas content. -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Revista — Flipbook 3D Deluxe</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="app">
+    <header class="topbar">
+      <button id="zoomBtn" title="Zoom (doble clic)">🔍</button>
+      <button id="fullscreenBtn" title="Pantalla completa">⤢</button>
+      <div class="pager"> <span id="curSpread">1</span> / <span id="totalSpread">22</span> </div>
+    </header>
+
+    <main class="book-wrap">
+      <div id="book" class="book" tabindex="0">
+        <!-- Hojas generadas dinámicamente -->
+      </div>
+
+      <button class="nav left" id="prevBtn" aria-label="Anterior">‹</button>
+      <button class="nav right" id="nextBtn" aria-label="Siguiente">›</button>
+    </main>
+
+    <audio id="pageSound" src="assets/sound.mp3" preload="auto"></audio>
+  </div>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
