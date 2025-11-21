@@ -1,2 +1,2 @@
 # Flipbook3D Deluxe
-Sube los archivos y tus imágenes (a-24.png a a-67.png).
+Bienvenidos a nuestra revista Foco en su primera edición Diciembre 2025, disfrútenla :)
