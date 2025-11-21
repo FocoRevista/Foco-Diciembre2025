@@ -22,20 +22,18 @@
     </header>
 
     <div class="book-viewport">
-        <div id="flipbook">
-            </div>
+        <div id="flipbook"></div>
 
         <button class="nav-btn prev-btn" id="prevBtn"><span class="material-icons-round">chevron_left</span></button>
         <button class="nav-btn next-btn" id="nextBtn"><span class="material-icons-round">chevron_right</span></button>
         <button class="nav-btn restart-btn" id="restartBtn"><span class="material-icons-round">first_page</span></button>
     </div>
 
-    <div class="mobile-progress-container">
-        <div class="mobile-progress-bar" id="progressBar"></div>
-    </div>
-
-    <footer class="bottom-bar">
-        <span id="pageIndicator">Cargando...</span>
+    <footer class="bottom-container">
+        <span id="pageIndicator" class="page-num">Cargando...</span>
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
     </footer>
 
     <audio id="pageSound" src="assets/sound.MP3"></audio>
