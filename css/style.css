@@ -2,7 +2,8 @@
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 body {
-    background: radial-gradient(circle at center, #333 0%, #111 100%);
+    /* Fondo un poco más oscuro para resaltar la revista */
+    background: radial-gradient(circle at center, #2a2a2a 0%, #000 100%);
     color: #fff; font-family: 'Inter', sans-serif;
     height: 100vh; width: 100%; overflow: hidden;
     display: flex; flex-direction: column;
@@ -22,7 +23,7 @@ body {
 
 /* Layout */
 .app { flex: 1; display: flex; flex-direction: column; position: relative; }
-.topbar, .bottom-bar { padding: 10px; background: rgba(0,0,0,0.5); text-align: center; z-index: 100; }
+.topbar, .bottom-bar { padding: 10px; background: rgba(0,0,0,0.6); text-align: center; z-index: 100; backdrop-filter: blur(5px);}
 .brand { font-weight: bold; letter-spacing: 2px; }
 
 /* Área del Libro */
@@ -30,42 +31,61 @@ body {
     flex: 1; width: 100%; overflow: hidden;
     display: flex; justify-content: center; align-items: center;
     position: relative;
-}
-
-.container {
-    /* Esto centra el libro */
-    display: flex; justify-content: center; align-items: center;
+    padding: 20px; /* Un poco de aire alrededor */
 }
 
 #flipbook {
     transition: opacity 0.5s; opacity: 0;
+    /* Sombra general detrás de todo el libro */
+    box-shadow: 0 30px 60px rgba(0,0,0,0.8);
 }
 
-/* === ESTÉTICA DE REVISTA === */
+/* === ESTÉTICA DE REVISTA CORREGIDA === */
+
 #flipbook .page {
-    background-color: #fff; /* Fondo blanco por si la imagen es transparente */
-    box-shadow: 0 0 20px rgba(0,0,0,0.2); /* Sombra suave alrededor de cada hoja */
+    /* Fondo transparente para que si la imagen no llena el espacio, se vea oscuro */
+    background-color: transparent;
+    /* Centrar la imagen dentro de la página */
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
 }
 
 #flipbook .page img {
+    /* SOLUCIÓN AL ESTIRAMIENTO: */
+    /* Ocupa el máximo espacio posible SIN deformarse */
     width: 100%; height: 100%;
-    object-fit: fill; /* Rellena el contenedor exacto calculado por JS */
+    object-fit: contain; 
+    
     display: block; user-select: none; -webkit-user-drag: none;
+    /* Sombra sutil alrededor de la hoja misma */
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
 }
 
-/* Sombras internas (Lomo del libro) */
-/* Páginas impares (derecha) */
-#flipbook .page.odd {
-    background: linear-gradient(to right, rgba(0,0,0,0.15) 0%, rgba(255,255,255,0) 10%);
+/* --- SOMBRAS CENTRALES FUERTES (VOLUMEN) --- */
+/* Usamos ::after para crear una capa sobre la imagen */
+
+/* Páginas IMPARES (Derecha) - Sombra en el borde izquierdo */
+#flipbook .page.odd::after {
+    content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 40px;
+    /* Gradiente fuerte de negro a transparente */
+    background: linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%);
+    z-index: 2; pointer-events: none;
+    mix-blend-mode: multiply; /* Mezcla mejor la sombra */
 }
-/* Páginas pares (izquierda) */
-#flipbook .page.even {
-    background: linear-gradient(to left, rgba(0,0,0,0.15) 0%, rgba(255,255,255,0) 10%);
+
+/* Páginas PARES (Izquierda) - Sombra en el borde derecho */
+#flipbook .page.even::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 40px;
+    /* Gradiente fuerte de derecho a transparente */
+    background: linear-gradient(to left, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%);
+    z-index: 2; pointer-events: none;
+    mix-blend-mode: multiply;
 }
-/* Portada dura */
-#flipbook .hard {
-    box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
-}
+
+/* La portada y contraportada no llevan sombra central */
+#flipbook .page.hard::after { display: none; }
+
 
 /* Botones */
 .nav-btn {
@@ -73,17 +93,18 @@ body {
     width: 50px; height: 50px; border-radius: 50%;
     background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
     color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s; z-index: 200;
+    transition: all 0.2s; z-index: 200; backdrop-filter: blur(5px);
 }
 .nav-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-50%) scale(1.1); }
-.nav-btn:active { transform: translateY(-50%) scale(0.95); }
-
 .prev-btn { left: 20px; }
 .next-btn { right: 20px; }
 .restart-btn { right: 20px; display: none; background: rgba(255, 215, 0, 0.3); color: #ffd700; border-color: #ffd700; }
 
 @media (max-width: 768px) {
+    .book-viewport { padding: 10px; }
     .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
-    .prev-btn { left: 10px; } 
-    .next-btn { right: 10px; }
+    .prev-btn { left: 5px; } 
+    .next-btn { right: 5px; }
+    /* En móvil (una sola página) las sombras centrales no tienen sentido */
+    #flipbook .page::after { display: none; }
 }
