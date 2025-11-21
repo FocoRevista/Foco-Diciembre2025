@@ -1,8 +1,8 @@
 /*
-  FOCO Magazine - v8 Final Loader Automático
-  - Loader visual sin interacción requerida
-  - Tiempo mínimo de carga para elegancia
-  - Carga optimizada en background
+  FOCO Magazine - v9 Final 
+  - Carga TOTAL antes de iniciar
+  - Audio garantizado (interacción "Toca para abrir")
+  - Numeración corregida (1-42)
 */
 
 const config = {
@@ -10,8 +10,7 @@ const config = {
 };
 
 const state = {
-    images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false,
-    audioUnlocked: false
+    images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false
 };
 
 const els = {
@@ -24,35 +23,48 @@ const els = {
     restartAudio: document.getElementById('restartSound'),
     zoom: document.getElementById('zoomBtn'),
     full: document.getElementById('fullscreenBtn'),
-    loader: document.getElementById('loader')
+    loader: document.getElementById('loader'),
+    loaderText: document.getElementById('loaderText'),
+    spinner: document.querySelector('.spinner')
 };
 
 // --- INICIO ---
 
 async function init() {
+    // 1. Listar todas las imágenes
     const totalFiles = config.endPage - config.startPage + 1;
     for (let i = 0; i < totalFiles; i++) {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // --- ESTRATEGIA DE CARGA ---
-    // 1. Promesa de tiempo mínimo (2.5 segundos) para que se vea el logo y el mensaje
-    const minimumTime = new Promise(resolve => setTimeout(resolve, 2500));
+    // 2. CARGA TOTAL (Bloqueante)
+    // Esperamos a que TODAS las imágenes estén listas
+    await preloadList(state.images);
 
-    // 2. Promesa de carga real (Primeras 6 imágenes críticas)
-    const criticalImages = state.images.slice(0, 6);
-    const loadingTask = preloadList(criticalImages);
+    // 3. ESTADO: LISTO
+    // Cambiamos el loader para pedir interacción (necesario para el audio)
+    els.spinner.classList.add('done'); // Oculta el spinner
+    els.loaderText.textContent = "Toca para abrir"; // Mensaje de acción
+    els.loaderText.style.fontWeight = "bold";
+    els.loaderText.style.cursor = "pointer";
 
-    // Esperamos a que AMBAS se cumplan (tiempo + carga)
-    await Promise.all([minimumTime, loadingTask]);
+    // 4. EVENTO DE ENTRADA (Un solo clic en cualquier lado)
+    const startExperience = () => {
+        // Reproducir audio inicial
+        playSound(els.audio);
+        
+        // Ocultar loader
+        els.loader.classList.add('hidden');
+        
+        // Quitar listeners
+        document.body.removeEventListener('click', startExperience);
+        document.body.removeEventListener('touchstart', startExperience);
+    };
 
-    // --- DESBLOQUEO UI ---
-    els.loader.classList.add('hidden'); // Fade out elegante
-    
-    // Cargar el resto en segundo plano
-    preloadList(state.images.slice(6));
+    document.body.addEventListener('click', startExperience);
+    document.body.addEventListener('touchstart', startExperience, {passive:true});
 
-    // Iniciar lógica
+    // Configuración final
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -63,17 +75,6 @@ async function init() {
     render();
     setupSwipe();
     setupControls();
-
-    // Truco para intentar activar audio en primer toque
-    const unlockAudio = () => {
-        if(!state.audioUnlocked) {
-            els.audio.play().then(()=> { els.audio.pause(); els.audio.currentTime=0; }).catch(()=>{});
-            els.restartAudio.play().then(()=> { els.restartAudio.pause(); els.restartAudio.currentTime=0; }).catch(()=>{});
-            state.audioUnlocked = true;
-        }
-    };
-    document.addEventListener('click', unlockAudio, {once:true});
-    document.addEventListener('touchstart', unlockAudio, {once:true, passive:true});
 }
 
 function setupControls() {
@@ -112,7 +113,14 @@ function render() {
 
 function renderMobile() {
     els.book.appendChild(createPage(state.images[state.currentView], 'single'));
-    els.indicator.textContent = `${state.currentView + 1} / ${state.images.length}`;
+    
+    // Lógica de numeración Móvil
+    let label = "";
+    if (state.currentView === 0) label = "Portada";
+    else if (state.currentView === state.images.length - 1) label = "Contraportada";
+    else label = `Página ${state.currentView}`; // a-25 es Pag 1, a-26 Pag 2... Coincide con índice
+    
+    els.indicator.textContent = label;
 }
 
 function renderDesktop() {
@@ -128,7 +136,20 @@ function renderDesktop() {
     if (right >= 0 && right < state.images.length) addSpine(rPage, 'right');
     els.book.append(lPage, rPage);
 
-    let label = state.currentView === 0 ? 'Portada' : (state.currentView === state.totalViews - 1 ? 'Contraportada' : `Págs ${left+24}-${right+24}`);
+    // Lógica de numeración Escritorio
+    let label = '';
+    if (state.currentView === 0) {
+        label = 'Portada';
+    } else if (state.currentView === state.totalViews - 1) {
+        label = 'Contraportada';
+    } else {
+        // a-24 es índice 0 (Portada)
+        // a-25 es índice 1 (Pag 1)
+        // Así que: Indice Imagen = Numero de Página
+        const pLeft = left; 
+        const pRight = right;
+        label = `Págs ${pLeft}-${pRight}`;
+    }
     els.indicator.textContent = label;
 }
 
@@ -148,11 +169,7 @@ function flip(dir) {
     if (dir === 'next') { if (state.currentView >= state.totalViews - 1) return; state.currentView++; }
     else { if (state.currentView <= 0) return; state.currentView--; }
     
-    // Intento de reproducir sonido
-    if(state.audioUnlocked) {
-        els.audio.currentTime = 0;
-        els.audio.play().catch(()=>{});
-    }
+    playSound(els.audio);
     
     els.book.style.transform = 'scale(0.98)'; els.book.style.opacity = '0.8';
     setTimeout(() => {
@@ -163,10 +180,7 @@ function flip(dir) {
 }
 
 function restartApp() {
-    if(state.audioUnlocked) {
-        els.restartAudio.currentTime = 0;
-        els.restartAudio.play().catch(()=>{});
-    }
+    playSound(els.restartAudio);
     els.book.classList.add('rewinding');
     setTimeout(() => {
         state.currentView = 0;
@@ -181,6 +195,11 @@ function updateControls() {
     els.next.style.display = isLastPage ? 'none' : 'flex';
     els.restart.style.display = isLastPage ? 'flex' : 'none';
     els.prev.style.opacity = els.prev.disabled ? '0' : '1';
+}
+
+function playSound(audioEl) {
+    audioEl.currentTime = 0;
+    audioEl.play().catch(() => {});
 }
 
 function toggleZoom() {
