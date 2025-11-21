@@ -2,11 +2,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 html, body { 
-  width: 100%; 
-  height: 100%; 
-  /* Soporte moderno para móviles (evita que la barra de URL tape cosas) */
-  height: 100dvh; 
-  overflow: hidden; 
+  width: 100%; height: 100%; height: 100dvh; overflow: hidden; 
 }
 
 body {
@@ -16,37 +12,39 @@ body {
   display: flex; flex-direction: column;
 }
 
-/* === LOADER === */
+/* === LOADER AUTOMÁTICO === */
 .loader-container {
   position: fixed; inset: 0; background: #111; z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: opacity 0.5s ease;
+  /* Transición suave de opacidad */
+  transition: opacity 0.8s ease-in-out, visibility 0.8s;
+  opacity: 1; visibility: visible;
 }
-/* FIX CRÍTICO: Esto borra el loader del mapa cuando termina */
-.loader-container.hidden { display: none !important; }
+
+/* Clase para ocultarlo suavemente */
+.loader-container.hidden { 
+  opacity: 0; 
+  visibility: hidden; 
+  pointer-events: none; /* Importante para poder hacer clic debajo */
+}
 
 .spinner {
-  width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.2);
+  width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1);
   border-top-color: #fff; border-radius: 50%;
   animation: spin 1s linear infinite; margin-bottom: 20px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.loader-text { color: #fff; letter-spacing: 1px; font-size: 1rem; margin-bottom: 25px; font-weight: 300; text-align: center;}
-
-#startBtn {
-  padding: 12px 40px; background: #fff; color: #000; border: none;
-  border-radius: 30px; font-weight: 700; cursor: pointer; letter-spacing: 1px;
-  display: none;
-  box-shadow: 0 0 25px rgba(255,255,255,0.3);
-  animation: pulse 2s infinite;
+.loader-text { 
+  color: #fff; letter-spacing: 1px; font-size: 0.95rem; font-weight: 300; 
+  opacity: 0.9; animation: pulseText 2s infinite;
 }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes pulseText { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
 
-/* === LAYOUT === */
+
+/* === LAYOUT APP === */
 .app { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; transition: all 0.3s;}
 
-/* CLASE ESPECIAL PARA IPHONE FULLSCREEN */
 body.fullscreen-active .app {
     position: fixed !important; inset: 0 !important; z-index: 9999 !important; background: #111;
     height: 100dvh !important; width: 100vw !important;
@@ -72,27 +70,29 @@ body.fullscreen-active .app {
 
 .book {
   position: relative; transform-style: preserve-3d;
-  transition: transform 0.4s ease; display: flex;
-  background: transparent; 
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease; 
+  display: flex; background: transparent; 
   box-shadow: 0 20px 50px rgba(0,0,0,0.6);
 }
 
+.book.rewinding {
+  transform: scale(0.8) translateZ(-200px) !important;
+  opacity: 0 !important; transition: all 0.5s ease-in !important;
+}
+
 .page-wrapper {
-  position: relative; height: 100%;
-  background-color: transparent; 
-  overflow: hidden;
+  position: relative; height: 100%; background-color: transparent; overflow: hidden;
 }
 
 .page-wrapper img {
-  width: 100%; height: 100%; display: block;
-  object-fit: contain; background-color: transparent; 
+  width: 100%; height: 100%; display: block; object-fit: contain; background-color: transparent; 
 }
 
 .shadow-spine { position: absolute; top: 0; bottom: 0; width: 40px; pointer-events: none; z-index: 10; }
 .left-page .shadow-spine { right: 0; background: linear-gradient(to right, transparent, rgba(0,0,0,0.25)); }
 .right-page .shadow-spine { left: 0; background: linear-gradient(to left, transparent, rgba(0,0,0,0.25)); }
 
-/* === NAVEGACIÓN === */
+/* === CONTROLES === */
 .nav-arrows {
   position: absolute; width: 100%; top: 50%; transform: translateY(-50%);
   display: flex; justify-content: space-between; pointer-events: none; padding: 0 20px; z-index: 200;
@@ -106,13 +106,17 @@ body.fullscreen-active .app {
 .nav-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
 .nav-btn:disabled { opacity: 0; pointer-events: none; }
 
-/* === ESCRITORIO === */
+.restart-btn {
+  background: rgba(255, 215, 0, 0.3); color: #ffd700; display: none;
+}
+.restart-btn:hover { background: rgba(255, 215, 0, 0.5); }
+
+/* === MEDIA QUERIES === */
 @media (min-width: 769px) {
   .book { height: 90vh; aspect-ratio: 1.414 / 1; }
   .page-wrapper { width: 50%; }
 }
 
-/* === MÓVIL === */
 @media (max-width: 768px) {
   .book-container { padding: 0; }
   .book { width: 100vw; height: auto; box-shadow: none; }
@@ -124,8 +128,7 @@ body.fullscreen-active .app {
 
   .nav-arrows { width: 100%; padding: 0 10px; z-index: 999; }
   .nav-btn {
-    width: 45px; height: 45px;
-    background: rgba(0,0,0,0.6); color: #fff;
-    border: 1px solid rgba(255,255,255,0.2);
+    width: 45px; height: 45px; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.2);
   }
+  .restart-btn { background: rgba(255, 215, 0, 0.4); color: #ffd700; border-color: #ffd700; }
 }
