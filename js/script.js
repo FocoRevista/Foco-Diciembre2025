@@ -1,8 +1,7 @@
 /*
-  FOCO Magazine - v13 Final Robust
-  - Interruptor de seguridad (Timeout) para evitar pantalla de carga infinita
-  - Zoom con arrastre (Drag & Drop) en PC
-  - Audio Fixes
+  FOCO Magazine - v11 Ultimate Mobile Fix
+  - Solución definitiva de audio en Swipe (Unlock Audio Context)
+  - Carga automática
 */
 
 const config = {
@@ -11,9 +10,7 @@ const config = {
 
 const state = {
     images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false,
-    audioUnlocked: false,
-    // Variables para arrastrar Zoom
-    panX: 0, panY: 0, isDragging: false, startX: 0, startY: 0
+    audioUnlocked: false // Control de estado de audio
 };
 
 const els = {
@@ -37,43 +34,13 @@ async function init() {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    console.log("Iniciando carga...");
+    // Carga TOTAL
+    await preloadList(state.images);
 
-    // === INTERRUPTOR DE SEGURIDAD ===
-    // Creamos dos promesas:
-    // 1. La carga real de imágenes
-    const loadPromise = preloadList(state.images);
-    
-    // 2. Un temporizador de 4 segundos
-    const timeoutPromise = new Promise(resolve => setTimeout(() => {
-        console.log("Tiempo de espera excedido. Forzando apertura.");
-        resolve();
-    }, 4000));
-
-    // Promise.race espera al que termine PRIMERO.
-    // Si las imágenes tardan mucho, gana el timer y abre la app de todas formas.
-    await Promise.race([loadPromise, timeoutPromise]);
-
-    // Ocultar loader
+    // Ocultamos loader
     els.loader.classList.add('hidden');
 
-    // Desbloqueo de audio silencioso (Fix Móvil)
-    const unlockAudioContext = () => {
-        if (state.audioUnlocked) return;
-        [els.audio, els.restartAudio].forEach(audio => {
-            audio.muted = true; 
-            audio.play().then(() => {
-                audio.pause(); audio.currentTime = 0; audio.muted = false;
-            }).catch(e => {});
-        });
-        state.audioUnlocked = true;
-        document.removeEventListener('touchstart', unlockAudioContext);
-        document.removeEventListener('click', unlockAudioContext);
-    };
-    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
-    document.addEventListener('click', unlockAudioContext);
-
-    // Iniciar lógica
+    // Inicialización Lógica
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -84,7 +51,32 @@ async function init() {
     render();
     setupSwipe();
     setupControls();
-    setupDrag(); // Activar el arrastre de zoom
+
+    // --- TRUCO MAESTRO DE AUDIO ---
+    // Agregamos un listener global que se ejecuta UNA sola vez al primer toque
+    // Esto "despierta" el motor de audio de Safari/Chrome
+    const unlockAudioContext = () => {
+        if (state.audioUnlocked) return;
+        
+        // Reproducir y pausar inmediatamente ambos audios para desbloquearlos
+        [els.audio, els.restartAudio].forEach(audio => {
+            audio.muted = true; // Silencio para que no suene feo
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.muted = false; // Quitamos silencio para cuando se necesite real
+            }).catch(e => console.log("Audio unlock blocked", e));
+        });
+
+        state.audioUnlocked = true;
+        // Limpiamos listeners
+        document.removeEventListener('touchstart', unlockAudioContext);
+        document.removeEventListener('click', unlockAudioContext);
+    };
+
+    // Escuchamos el primer toque en CUALQUIER parte de la pantalla
+    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
+    document.addEventListener('click', unlockAudioContext);
 }
 
 function setupControls() {
@@ -99,50 +91,9 @@ function setupControls() {
     });
 }
 
-// Lógica de Arrastrar (Drag) para Zoom
-function setupDrag() {
-    els.book.addEventListener('mousedown', e => {
-        if (!state.isZoomed) return;
-        state.isDragging = true;
-        state.startX = e.clientX - state.panX;
-        state.startY = e.clientY - state.panY;
-        els.book.style.cursor = 'grabbing';
-        e.preventDefault();
-    });
-
-    window.addEventListener('mousemove', e => {
-        if (!state.isDragging || !state.isZoomed) return;
-        e.preventDefault();
-        state.panX = e.clientX - state.startX;
-        state.panY = e.clientY - state.startY;
-        updateTransform();
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (state.isDragging) {
-            state.isDragging = false;
-            if (state.isZoomed) els.book.style.cursor = 'grab';
-        }
-    });
-}
-
-function updateTransform() {
-    if (state.isZoomed) {
-        els.book.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(1.6)`;
-    } else {
-        els.book.style.transform = `translate(0px, 0px) scale(1)`;
-    }
-}
-
 function preloadList(list) {
     return Promise.all(list.map(src => new Promise(resolve => {
-        const img = new Image(); 
-        img.src = src; 
-        img.onload = resolve; 
-        img.onerror = () => {
-            console.warn("Error cargando imagen, saltando...", src);
-            resolve(); // Resolvemos aunque falle para no bloquear
-        };
+        const img = new Image(); img.src = src; img.onload = resolve; img.onerror = resolve;
     })));
 }
 
@@ -162,7 +113,11 @@ function render() {
 
 function renderMobile() {
     els.book.appendChild(createPage(state.images[state.currentView], 'single'));
-    let label = state.currentView === 0 ? "Portada" : (state.currentView === state.images.length - 1 ? "Contraportada" : `Página ${state.currentView}`);
+    
+    let label = "";
+    if (state.currentView === 0) label = "Portada";
+    else if (state.currentView === state.images.length - 1) label = "Contraportada";
+    else label = `Página ${state.currentView}`;
     els.indicator.textContent = label;
 }
 
@@ -179,7 +134,10 @@ function renderDesktop() {
     if (right >= 0 && right < state.images.length) addSpine(rPage, 'right');
     els.book.append(lPage, rPage);
 
-    let label = state.currentView === 0 ? 'Portada' : (state.currentView === state.totalViews - 1 ? 'Contraportada' : `Págs ${left}-${right}`);
+    let label = '';
+    if (state.currentView === 0) label = 'Portada';
+    else if (state.currentView === state.totalViews - 1) label = 'Contraportada';
+    else label = `Págs ${left}-${right}`;
     els.indicator.textContent = label;
 }
 
@@ -193,26 +151,24 @@ function addSpine(el, side) {
     const spine = document.createElement('div'); spine.className = 'shadow-spine'; el.appendChild(spine);
 }
 
-function flip(dir) {
-    if (state.isZoomed) toggleZoom(); // Salir de zoom al cambiar página
+// --- ACCIONES ---
 
+function flip(dir) {
     if (dir === 'next') { if (state.currentView >= state.totalViews - 1) return; state.currentView++; }
     else { if (state.currentView <= 0) return; state.currentView--; }
     
+    // Reproducir sonido seguro
     safePlay(els.audio);
     
-    els.book.style.transition = "transform 0.3s, opacity 0.3s";
-    els.book.style.opacity = '0.8';
-    els.book.style.transform = 'scale(0.98)'; 
+    els.book.style.transform = 'scale(0.98)'; els.book.style.opacity = '0.8';
     setTimeout(() => {
         render();
+        els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
         els.book.style.opacity = '1';
-        els.book.style.transform = 'scale(1)';
     }, 150);
 }
 
 function restartApp() {
-    if (state.isZoomed) toggleZoom();
     safePlay(els.restartAudio);
     els.book.classList.add('rewinding');
     setTimeout(() => {
@@ -222,10 +178,13 @@ function restartApp() {
     }, 500);
 }
 
+// Helper para reproducir sin errores
 function safePlay(audioEl) {
     if (audioEl.readyState >= 2 || state.audioUnlocked) {
         audioEl.currentTime = 0;
-        audioEl.play().catch(e => {});
+        audioEl.play().catch(e => {
+            // Ignorar errores de autoplay bloqueado, es normal si el usuario no ha tocado
+        });
     }
 }
 
@@ -239,23 +198,9 @@ function updateControls() {
 
 function toggleZoom() {
     state.isZoomed = !state.isZoomed;
-    
-    if (state.isZoomed) {
-        // Activar Zoom
-        state.panX = 0; state.panY = 0;
-        els.book.style.transition = "transform 0.3s ease";
-        updateTransform();
-        els.book.style.cursor = 'grab';
-        els.zoom.innerHTML = '<span class="material-icons-round">zoom_out</span>';
-        setTimeout(() => { els.book.style.transition = "none"; }, 300);
-    } else {
-        // Desactivar Zoom
-        state.panX = 0; state.panY = 0;
-        els.book.style.transition = "transform 0.3s ease";
-        updateTransform();
-        els.book.style.cursor = 'default';
-        els.zoom.innerHTML = '<span class="material-icons-round">zoom_in</span>';
-    }
+    els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
+    els.book.style.cursor = state.isZoomed ? 'grab' : 'default';
+    els.zoom.innerHTML = state.isZoomed ? '<span class="material-icons-round">zoom_out</span>' : '<span class="material-icons-round">zoom_in</span>';
 }
 
 function toggleFullscreen() {
@@ -265,4 +210,18 @@ function toggleFullscreen() {
 }
 
 function setupSwipe() {
-    let startX = 0
+    let startX = 0;
+    els.book.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        // NO llamamos nada aquí para no bloquear el thread
+    }, {passive: true});
+    
+    els.book.addEventListener('touchend', e => {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) {
+            diff > 0 ? flip('next') : flip('prev');
+        }
+    });
+}
+
+init();
