@@ -1,7 +1,8 @@
 /*
-  FOCO Magazine - v12 Final Desktop Zoom Fix
-  - Agregado: Posibilidad de arrastrar (Pan) al hacer zoom en PC
-  - Mantiene todas las correcciones de audio y móvil anteriores
+  FOCO Magazine - v13 Final Robust
+  - Interruptor de seguridad (Timeout) para evitar pantalla de carga infinita
+  - Zoom con arrastre (Drag & Drop) en PC
+  - Audio Fixes
 */
 
 const config = {
@@ -11,7 +12,7 @@ const config = {
 const state = {
     images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false,
     audioUnlocked: false,
-    // Variables para arrastrar (Pan)
+    // Variables para arrastrar Zoom
     panX: 0, panY: 0, isDragging: false, startX: 0, startY: 0
 };
 
@@ -36,11 +37,27 @@ async function init() {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    await preloadList(state.images);
+    console.log("Iniciando carga...");
 
+    // === INTERRUPTOR DE SEGURIDAD ===
+    // Creamos dos promesas:
+    // 1. La carga real de imágenes
+    const loadPromise = preloadList(state.images);
+    
+    // 2. Un temporizador de 4 segundos
+    const timeoutPromise = new Promise(resolve => setTimeout(() => {
+        console.log("Tiempo de espera excedido. Forzando apertura.");
+        resolve();
+    }, 4000));
+
+    // Promise.race espera al que termine PRIMERO.
+    // Si las imágenes tardan mucho, gana el timer y abre la app de todas formas.
+    await Promise.race([loadPromise, timeoutPromise]);
+
+    // Ocultar loader
     els.loader.classList.add('hidden');
 
-    // Lógica de Unlock Audio al primer toque (Swipe Fix)
+    // Desbloqueo de audio silencioso (Fix Móvil)
     const unlockAudioContext = () => {
         if (state.audioUnlocked) return;
         [els.audio, els.restartAudio].forEach(audio => {
@@ -56,6 +73,7 @@ async function init() {
     document.addEventListener('touchstart', unlockAudioContext, { passive: true });
     document.addEventListener('click', unlockAudioContext);
 
+    // Iniciar lógica
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -66,7 +84,7 @@ async function init() {
     render();
     setupSwipe();
     setupControls();
-    setupDrag(); // Iniciamos la lógica de arrastrar
+    setupDrag(); // Activar el arrastre de zoom
 }
 
 function setupControls() {
@@ -81,19 +99,17 @@ function setupControls() {
     });
 }
 
-// --- NUEVA LÓGICA DE ARRASTRAR (DRAG) ---
+// Lógica de Arrastrar (Drag) para Zoom
 function setupDrag() {
-    // Cuando presionas el clic
     els.book.addEventListener('mousedown', e => {
-        if (!state.isZoomed) return; // Solo funciona si hay zoom
+        if (!state.isZoomed) return;
         state.isDragging = true;
         state.startX = e.clientX - state.panX;
         state.startY = e.clientY - state.panY;
         els.book.style.cursor = 'grabbing';
-        e.preventDefault(); // Evita seleccionar imagen
+        e.preventDefault();
     });
 
-    // Cuando mueves el mouse
     window.addEventListener('mousemove', e => {
         if (!state.isDragging || !state.isZoomed) return;
         e.preventDefault();
@@ -102,7 +118,6 @@ function setupDrag() {
         updateTransform();
     });
 
-    // Cuando sueltas el clic
     window.addEventListener('mouseup', () => {
         if (state.isDragging) {
             state.isDragging = false;
@@ -112,7 +127,6 @@ function setupDrag() {
 }
 
 function updateTransform() {
-    // Aplica movimiento + escala
     if (state.isZoomed) {
         els.book.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(1.6)`;
     } else {
@@ -120,11 +134,15 @@ function updateTransform() {
     }
 }
 
-// -----------------------------------------
-
 function preloadList(list) {
     return Promise.all(list.map(src => new Promise(resolve => {
-        const img = new Image(); img.src = src; img.onload = resolve; img.onerror = resolve;
+        const img = new Image(); 
+        img.src = src; 
+        img.onload = resolve; 
+        img.onerror = () => {
+            console.warn("Error cargando imagen, saltando...", src);
+            resolve(); // Resolvemos aunque falle para no bloquear
+        };
     })));
 }
 
@@ -176,19 +194,16 @@ function addSpine(el, side) {
 }
 
 function flip(dir) {
-    // Si está con zoom, al cambiar de página quitamos el zoom y reseteamos posición
-    if (state.isZoomed) toggleZoom();
+    if (state.isZoomed) toggleZoom(); // Salir de zoom al cambiar página
 
     if (dir === 'next') { if (state.currentView >= state.totalViews - 1) return; state.currentView++; }
     else { if (state.currentView <= 0) return; state.currentView--; }
     
     safePlay(els.audio);
     
-    // Animación simple
     els.book.style.transition = "transform 0.3s, opacity 0.3s";
     els.book.style.opacity = '0.8';
     els.book.style.transform = 'scale(0.98)'; 
-    
     setTimeout(() => {
         render();
         els.book.style.opacity = '1';
@@ -226,22 +241,17 @@ function toggleZoom() {
     state.isZoomed = !state.isZoomed;
     
     if (state.isZoomed) {
-        // Entrar en Zoom
-        state.panX = 0;
-        state.panY = 0;
-        els.book.style.transition = "transform 0.3s ease"; // Animación suave entrada
+        // Activar Zoom
+        state.panX = 0; state.panY = 0;
+        els.book.style.transition = "transform 0.3s ease";
         updateTransform();
         els.book.style.cursor = 'grab';
         els.zoom.innerHTML = '<span class="material-icons-round">zoom_out</span>';
-        
-        // Quitamos transición después de entrar para que el drag sea rápido
         setTimeout(() => { els.book.style.transition = "none"; }, 300);
-        
     } else {
-        // Salir del Zoom
-        state.panX = 0;
-        state.panY = 0;
-        els.book.style.transition = "transform 0.3s ease"; // Animación suave salida
+        // Desactivar Zoom
+        state.panX = 0; state.panY = 0;
+        els.book.style.transition = "transform 0.3s ease";
         updateTransform();
         els.book.style.cursor = 'default';
         els.zoom.innerHTML = '<span class="material-icons-round">zoom_in</span>';
@@ -250,4 +260,9 @@ function toggleZoom() {
 
 function toggleFullscreen() {
     if (document.documentElement.requestFullscreen) {
-        !document.fullscreenElement ? document.documentElement
+        !document.fullscreenElement ? document.documentElement.requestFullscreen() : document.exitFullscreen();
+    } else { document.body.classList.toggle('fullscreen-active'); }
+}
+
+function setupSwipe() {
+    let startX = 0
