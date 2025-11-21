@@ -2,13 +2,12 @@
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 html, body { 
-  width: 100%; height: 100%; height: 100dvh; overflow: hidden; 
+  width: 100%; height: 100%; overflow: hidden; 
 }
 
 body {
-  font-family: 'Inter', sans-serif;
   background: radial-gradient(circle at center, #2b2b2b 0%, #111 100%);
-  color: #fff;
+  color: #fff; font-family: sans-serif;
   display: flex; flex-direction: column;
 }
 
@@ -16,116 +15,69 @@ body {
 .loader-container {
   position: fixed; inset: 0; background: #111; z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: opacity 0.8s ease-in-out, visibility 0.8s;
-  opacity: 1; visibility: visible;
+  transition: opacity 0.5s;
 }
-.loader-container.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
 .spinner {
-  width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1);
-  border-top-color: #fff; border-radius: 50%;
-  animation: spin 1s linear infinite; margin-bottom: 20px;
+  width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: #fff; border-radius: 50%; animation: spin 1s infinite linear; margin-bottom: 15px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.loader-text { 
-  color: #fff; letter-spacing: 1px; font-size: 1rem; font-weight: 300; 
-  text-align: center; padding: 0 20px;
-  animation: pulseText 2s infinite;
+/* === LAYOUT PRINCIPAL === */
+.app { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+
+.topbar, .bottom-bar {
+  padding: 10px 20px; background: rgba(0,0,0,0.3); flex-shrink: 0; z-index: 100;
 }
-@keyframes pulseText { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+.brand { font-weight: bold; letter-spacing: 1px; }
+.bottom-bar { text-align: center; font-size: 0.8rem; color: #aaa; }
 
-
-/* === LAYOUT === */
-.app { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; transition: all 0.3s;}
-
-body.fullscreen-active .app {
-    position: fixed !important; inset: 0 !important; z-index: 9999 !important; background: #111;
-    height: 100dvh !important; width: 100vw !important;
-}
-
-.topbar {
-  padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
-  z-index: 100; background: rgba(0,0,0,0.2); flex-shrink: 0;
-}
-.brand { font-weight: 700; letter-spacing: 1px; }
-.icon-btn { background: transparent; border: none; color: #fff; cursor: pointer; padding: 8px; }
-
-.bottom-bar {
-  text-align: center; padding: 10px; font-size: 0.85rem; color: #888;
-  background: rgba(0,0,0,0.2); z-index: 100; flex-shrink: 0;
+/* === CONTENEDOR DEL LIBRO (WRAPPER) === */
+.book-container-wrapper {
+    flex-grow: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 20px 0;
 }
 
-/* === LIBRO === */
-.book-container {
-  flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center;
-  overflow: hidden; perspective: 2500px; padding: 20px;
+/* === ESTILOS NECESARIOS PARA TURN.JS === */
+#flipbook {
+    /* Turn.js necesita un tamaño inicial, luego lo ajustamos con JS */
+    width: 960px;
+    height: 600px;
+    transition: opacity 0.5s;
+    opacity: 0; /* Oculto hasta que cargue */
 }
 
-.book {
-  position: relative; transform-style: preserve-3d;
-  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease; 
-  display: flex; background: transparent; 
-  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-  
-  /* Mejora la respuesta táctil en móviles */
-  touch-action: pan-y pinch-zoom; 
+#flipbook .page {
+    background-color: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.2);
 }
 
-.book.rewinding {
-  transform: scale(0.8) translateZ(-200px) !important;
-  opacity: 0 !important; transition: all 0.5s ease-in !important;
+#flipbook .page img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Asegura que la imagen se vea completa */
+    display: block;
+    /* Fix para evitar que se arrastre la imagen fantasma en navegadores */
+    -webkit-user-drag: none;
+    user-select: none;
 }
 
-.page-wrapper {
-  position: relative; height: 100%; background-color: transparent; overflow: hidden;
-}
-
-.page-wrapper img {
-  width: 100%; height: 100%; display: block; object-fit: contain; background-color: transparent; 
-}
-
-.shadow-spine { position: absolute; top: 0; bottom: 0; width: 40px; pointer-events: none; z-index: 10; }
-.left-page .shadow-spine { right: 0; background: linear-gradient(to right, transparent, rgba(0,0,0,0.25)); }
-.right-page .shadow-spine { left: 0; background: linear-gradient(to left, transparent, rgba(0,0,0,0.25)); }
-
-/* === CONTROLES === */
+/* === NAVEGACIÓN === */
 .nav-arrows {
   position: absolute; width: 100%; top: 50%; transform: translateY(-50%);
-  display: flex; justify-content: space-between; pointer-events: none; padding: 0 20px; z-index: 200;
+  display: flex; justify-content: space-between; pointer-events: none; padding: 0 10px; z-index: 200;
 }
-
 .nav-btn {
-  pointer-events: all; background: rgba(255,255,255,0.15); backdrop-filter: blur(4px);
-  border: none; color: white; border-radius: 50%; width: 50px; height: 50px;
-  display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
-}
-.nav-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
-.nav-btn:disabled { opacity: 0; pointer-events: none; }
-
-.restart-btn {
-  background: rgba(255, 215, 0, 0.3); color: #ffd700; display: none;
-}
-.restart-btn:hover { background: rgba(255, 215, 0, 0.5); }
-
-/* === MEDIA QUERIES === */
-@media (min-width: 769px) {
-  .book { height: 90vh; aspect-ratio: 1.414 / 1; }
-  .page-wrapper { width: 50%; }
+  pointer-events: all; background: rgba(0,0,0,0.5); color: white; border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 
+/* MÓVIL */
 @media (max-width: 768px) {
-  .book-container { padding: 0; }
-  .book { width: 100vw; height: auto; box-shadow: none; }
-  .page-wrapper { width: 100%; height: auto; }
-  .page-wrapper img { object-fit: contain; max-height: 80vh; }
-  .shadow-spine { display: none; }
-  body:fullscreen .book-container { background: #000; }
-  body:fullscreen .book img { max-height: 100vh; width: auto; margin: 0 auto; }
-
-  .nav-arrows { width: 100%; padding: 0 10px; z-index: 999; }
-  .nav-btn {
-    width: 45px; height: 45px; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.2);
-  }
-  .restart-btn { background: rgba(255, 215, 0, 0.4); color: #ffd700; border-color: #ffd700; }
+    .book-container-wrapper { padding: 10px 0; }
 }
