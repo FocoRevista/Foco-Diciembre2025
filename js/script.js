@@ -1,7 +1,7 @@
 /*
-  FOCO Magazine - v15 3D Animation
-  - Efecto Flip 3D Realista (Giro en eje Y)
-  - Sincronización exacta cambio de imagen
+  FOCO Magazine - v11 Ultimate Mobile Fix
+  - Solución definitiva de audio en Swipe (Unlock Audio Context)
+  - Carga automática
 */
 
 const config = {
@@ -10,7 +10,7 @@ const config = {
 
 const state = {
     images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false,
-    audioUnlocked: false
+    audioUnlocked: false // Control de estado de audio
 };
 
 const els = {
@@ -27,33 +27,20 @@ const els = {
 };
 
 // --- INICIO ---
+
 async function init() {
     const totalFiles = config.endPage - config.startPage + 1;
     for (let i = 0; i < totalFiles; i++) {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    const loadPromise = preloadList(state.images);
-    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(), 4000));
-    await Promise.race([loadPromise, timeoutPromise]);
+    // Carga TOTAL
+    await preloadList(state.images);
 
+    // Ocultamos loader
     els.loader.classList.add('hidden');
 
-    const unlockAudioContext = () => {
-        if (state.audioUnlocked) return;
-        [els.audio, els.restartAudio].forEach(audio => {
-            audio.muted = true; 
-            audio.play().then(() => {
-                audio.pause(); audio.currentTime = 0; audio.muted = false;
-            }).catch(e => {});
-        });
-        state.audioUnlocked = true;
-        document.removeEventListener('touchstart', unlockAudioContext);
-        document.removeEventListener('click', unlockAudioContext);
-    };
-    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
-    document.addEventListener('click', unlockAudioContext);
-
+    // Inicialización Lógica
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -64,6 +51,32 @@ async function init() {
     render();
     setupSwipe();
     setupControls();
+
+    // --- TRUCO MAESTRO DE AUDIO ---
+    // Agregamos un listener global que se ejecuta UNA sola vez al primer toque
+    // Esto "despierta" el motor de audio de Safari/Chrome
+    const unlockAudioContext = () => {
+        if (state.audioUnlocked) return;
+        
+        // Reproducir y pausar inmediatamente ambos audios para desbloquearlos
+        [els.audio, els.restartAudio].forEach(audio => {
+            audio.muted = true; // Silencio para que no suene feo
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.muted = false; // Quitamos silencio para cuando se necesite real
+            }).catch(e => console.log("Audio unlock blocked", e));
+        });
+
+        state.audioUnlocked = true;
+        // Limpiamos listeners
+        document.removeEventListener('touchstart', unlockAudioContext);
+        document.removeEventListener('click', unlockAudioContext);
+    };
+
+    // Escuchamos el primer toque en CUALQUIER parte de la pantalla
+    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
+    document.addEventListener('click', unlockAudioContext);
 }
 
 function setupControls() {
@@ -100,7 +113,11 @@ function render() {
 
 function renderMobile() {
     els.book.appendChild(createPage(state.images[state.currentView], 'single'));
-    let label = state.currentView === 0 ? "Portada" : (state.currentView === state.images.length - 1 ? "Contraportada" : `Página ${state.currentView}`);
+    
+    let label = "";
+    if (state.currentView === 0) label = "Portada";
+    else if (state.currentView === state.images.length - 1) label = "Contraportada";
+    else label = `Página ${state.currentView}`;
     els.indicator.textContent = label;
 }
 
@@ -117,7 +134,10 @@ function renderDesktop() {
     if (right >= 0 && right < state.images.length) addSpine(rPage, 'right');
     els.book.append(lPage, rPage);
 
-    let label = state.currentView === 0 ? 'Portada' : (state.currentView === state.totalViews - 1 ? 'Contraportada' : `Págs ${left}-${right}`);
+    let label = '';
+    if (state.currentView === 0) label = 'Portada';
+    else if (state.currentView === state.totalViews - 1) label = 'Contraportada';
+    else label = `Págs ${left}-${right}`;
     els.indicator.textContent = label;
 }
 
@@ -131,55 +151,40 @@ function addSpine(el, side) {
     const spine = document.createElement('div'); spine.className = 'shadow-spine'; el.appendChild(spine);
 }
 
-// === NUEVA ANIMACIÓN 3D ===
+// --- ACCIONES ---
+
 function flip(dir) {
-    // Si hay una animación corriendo, evitar doble clic
-    if (els.book.classList.contains('flipping-next') || els.book.classList.contains('flipping-prev')) return;
-    if (state.isZoomed) toggleZoom();
-
-    let targetView = state.currentView;
-    if (dir === 'next') {
-        if (state.currentView >= state.totalViews - 1) return;
-        targetView++;
-    } else {
-        if (state.currentView <= 0) return;
-        targetView--;
-    }
-
+    if (dir === 'next') { if (state.currentView >= state.totalViews - 1) return; state.currentView++; }
+    else { if (state.currentView <= 0) return; state.currentView--; }
+    
+    // Reproducir sonido seguro
     safePlay(els.audio);
-
-    // 1. Agregamos la clase de animación correspondiente
-    const animClass = dir === 'next' ? 'flipping-next' : 'flipping-prev';
-    els.book.classList.add(animClass);
-
-    // 2. Esperamos EXACTAMENTE a la mitad de la animación (300ms de 600ms)
-    // En este punto el libro está "de lado" (invisible) y podemos cambiar la hoja sin que se note el corte
+    
+    els.book.style.transform = 'scale(0.98)'; els.book.style.opacity = '0.8';
     setTimeout(() => {
-        state.currentView = targetView;
         render();
-    }, 300);
-
-    // 3. Al terminar la animación completa, limpiamos las clases
-    setTimeout(() => {
-        els.book.classList.remove(animClass);
-    }, 600);
+        els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
+        els.book.style.opacity = '1';
+    }, 150);
 }
 
 function restartApp() {
-    if (state.isZoomed) toggleZoom();
     safePlay(els.restartAudio);
     els.book.classList.add('rewinding');
     setTimeout(() => {
         state.currentView = 0;
         render();
         els.book.classList.remove('rewinding');
-    }, 800); // 800ms coincide con la duración CSS
+    }, 500);
 }
 
+// Helper para reproducir sin errores
 function safePlay(audioEl) {
     if (audioEl.readyState >= 2 || state.audioUnlocked) {
         audioEl.currentTime = 0;
-        audioEl.play().catch(e => {});
+        audioEl.play().catch(e => {
+            // Ignorar errores de autoplay bloqueado, es normal si el usuario no ha tocado
+        });
     }
 }
 
@@ -193,9 +198,8 @@ function updateControls() {
 
 function toggleZoom() {
     state.isZoomed = !state.isZoomed;
-    els.book.style.transition = "transform 0.3s ease";
     els.book.style.transform = state.isZoomed ? 'scale(1.6)' : 'scale(1)';
-    els.book.style.cursor = state.isZoomed ? 'zoom-out' : 'zoom-in';
+    els.book.style.cursor = state.isZoomed ? 'grab' : 'default';
     els.zoom.innerHTML = state.isZoomed ? '<span class="material-icons-round">zoom_out</span>' : '<span class="material-icons-round">zoom_in</span>';
 }
 
@@ -207,11 +211,16 @@ function toggleFullscreen() {
 
 function setupSwipe() {
     let startX = 0;
-    els.book.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, {passive: true});
+    els.book.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        // NO llamamos nada aquí para no bloquear el thread
+    }, {passive: true});
+    
     els.book.addEventListener('touchend', e => {
-        if (state.isZoomed) return;
         const diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 50) diff > 0 ? flip('next') : flip('prev');
+        if (Math.abs(diff) > 50) {
+            diff > 0 ? flip('next') : flip('prev');
+        }
     });
 }
 
