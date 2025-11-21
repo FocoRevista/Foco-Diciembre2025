@@ -1,7 +1,7 @@
 /*
-  FOCO Magazine - v10 Final Auto-Load
-  - Carga automática sin "Touch to open"
-  - Fix sonido Restart
+  FOCO Magazine - v11 Ultimate Mobile Fix
+  - Solución definitiva de audio en Swipe (Unlock Audio Context)
+  - Carga automática
 */
 
 const config = {
@@ -9,7 +9,8 @@ const config = {
 };
 
 const state = {
-    images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false
+    images: [], currentView: 0, totalViews: 0, isMobile: false, isZoomed: false,
+    audioUnlocked: false // Control de estado de audio
 };
 
 const els = {
@@ -33,18 +34,13 @@ async function init() {
         state.images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // Carga TOTAL bloqueante
+    // Carga TOTAL
     await preloadList(state.images);
 
-    // --- APERTURA AUTOMÁTICA ---
-    // Ocultamos loader directamente
+    // Ocultamos loader
     els.loader.classList.add('hidden');
 
-    // Intentamos reproducir audio inicial (puede fallar en móviles si no hubo clic previo)
-    // Pero lo intentamos por si acaso es PC
-    playSound(els.audio);
-
-    // Configuración
+    // Inicialización Lógica
     checkMode();
     window.addEventListener('resize', () => {
         const wasMobile = state.isMobile;
@@ -55,6 +51,32 @@ async function init() {
     render();
     setupSwipe();
     setupControls();
+
+    // --- TRUCO MAESTRO DE AUDIO ---
+    // Agregamos un listener global que se ejecuta UNA sola vez al primer toque
+    // Esto "despierta" el motor de audio de Safari/Chrome
+    const unlockAudioContext = () => {
+        if (state.audioUnlocked) return;
+        
+        // Reproducir y pausar inmediatamente ambos audios para desbloquearlos
+        [els.audio, els.restartAudio].forEach(audio => {
+            audio.muted = true; // Silencio para que no suene feo
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.muted = false; // Quitamos silencio para cuando se necesite real
+            }).catch(e => console.log("Audio unlock blocked", e));
+        });
+
+        state.audioUnlocked = true;
+        // Limpiamos listeners
+        document.removeEventListener('touchstart', unlockAudioContext);
+        document.removeEventListener('click', unlockAudioContext);
+    };
+
+    // Escuchamos el primer toque en CUALQUIER parte de la pantalla
+    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
+    document.addEventListener('click', unlockAudioContext);
 }
 
 function setupControls() {
@@ -82,8 +104,6 @@ function calculateViews() {
     if (state.currentView >= state.totalViews) state.currentView = 0;
     render();
 }
-
-// --- RENDER ---
 
 function render() {
     els.book.innerHTML = '';
@@ -117,7 +137,7 @@ function renderDesktop() {
     let label = '';
     if (state.currentView === 0) label = 'Portada';
     else if (state.currentView === state.totalViews - 1) label = 'Contraportada';
-    else label = `Págs ${left}-${right}`; // Ajuste numérico visual
+    else label = `Págs ${left}-${right}`;
     els.indicator.textContent = label;
 }
 
@@ -137,7 +157,8 @@ function flip(dir) {
     if (dir === 'next') { if (state.currentView >= state.totalViews - 1) return; state.currentView++; }
     else { if (state.currentView <= 0) return; state.currentView--; }
     
-    playSound(els.audio);
+    // Reproducir sonido seguro
+    safePlay(els.audio);
     
     els.book.style.transform = 'scale(0.98)'; els.book.style.opacity = '0.8';
     setTimeout(() => {
@@ -148,10 +169,7 @@ function flip(dir) {
 }
 
 function restartApp() {
-    // Al hacer clic en el botón, el navegador permite el audio 100% seguro
-    els.restartAudio.currentTime = 0;
-    els.restartAudio.play().catch(e => console.log("Error audio restart:", e));
-    
+    safePlay(els.restartAudio);
     els.book.classList.add('rewinding');
     setTimeout(() => {
         state.currentView = 0;
@@ -160,18 +178,22 @@ function restartApp() {
     }, 500);
 }
 
+// Helper para reproducir sin errores
+function safePlay(audioEl) {
+    if (audioEl.readyState >= 2 || state.audioUnlocked) {
+        audioEl.currentTime = 0;
+        audioEl.play().catch(e => {
+            // Ignorar errores de autoplay bloqueado, es normal si el usuario no ha tocado
+        });
+    }
+}
+
 function updateControls() {
     const isLastPage = state.currentView >= state.totalViews - 1;
     els.prev.disabled = state.currentView === 0;
     els.next.style.display = isLastPage ? 'none' : 'flex';
     els.restart.style.display = isLastPage ? 'flex' : 'none';
     els.prev.style.opacity = els.prev.disabled ? '0' : '1';
-}
-
-function playSound(audioEl) {
-    audioEl.currentTime = 0;
-    // El .catch evita errores en consola si el navegador bloquea el autoplay inicial
-    audioEl.play().catch(() => {});
 }
 
 function toggleZoom() {
@@ -189,10 +211,16 @@ function toggleFullscreen() {
 
 function setupSwipe() {
     let startX = 0;
-    els.book.addEventListener('touchstart', e => startX = e.touches[0].clientX, {passive:true});
+    els.book.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        // NO llamamos nada aquí para no bloquear el thread
+    }, {passive: true});
+    
     els.book.addEventListener('touchend', e => {
         const diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 50) diff > 0 ? flip('next') : flip('prev');
+        if (Math.abs(diff) > 50) {
+            diff > 0 ? flip('next') : flip('prev');
+        }
     });
 }
 
