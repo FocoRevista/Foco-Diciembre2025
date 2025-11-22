@@ -1,6 +1,6 @@
 /*
   FOCO Magazine - V7 Contain Strategy
-  - CSS force 'contain' para evitar zoom en portada.
+  - Ajuste dinámico para portada y contraportada.
   - Barra de progreso funcional.
 */
 
@@ -17,7 +17,6 @@ let audioUnlocked = false;
 const PAGE_RATIO = 0.758; 
 
 $(document).ready(function() {
-    
     let images = [];
     for (let i = 0; i < totalPages; i++) {
         images.push(`${config.path}${config.startPage + i}${config.ext}`);
@@ -37,7 +36,6 @@ function initBook(images) {
     images.forEach((src, i) => {
         let className = (i === 0 || i === images.length - 1) ? 'hard' : 'page';
         if(i > 0 && i < images.length - 1) className += (i % 2 === 0) ? ' odd' : ' even';
-        // El estilo background-image se encarga de todo
         flipbook.append(`<div class="${className}" style="background-image:url('${src}')"></div>`);
     });
 
@@ -54,13 +52,18 @@ function initBook(images) {
         duration: 1000,
         when: {
             start: function() { isAnimating = true; playSound('flip'); },
-            turned: function(e, page) { isAnimating = false; updateUI(page); },
+            turned: function(e, page) { 
+                isAnimating = false; 
+                updateUI(page); 
+                adjustHardPages(); // 🔧 Ajuste tapas
+            },
             end: function() { isAnimating = false; }
         }
     });
 
     flipbook.animate({opacity: 1}, 500);
     updateUI(1);
+    adjustHardPages(); // 🔧 Ajuste inicial
 
     $('#prevBtn').click(() => { if (!isAnimating) flipbook.turn('previous'); });
     $('#nextBtn').click(() => { if (!isAnimating) flipbook.turn('next'); });
@@ -77,6 +80,7 @@ function initBook(images) {
         let newSize = calculateExactSize();
         flipbook.turn('size', newSize.width, newSize.height);
         flipbook.turn('display', newSize.display);
+        adjustHardPages(); // 🔧 Reajuste en resize
     });
 }
 
@@ -85,50 +89,43 @@ function calculateExactSize() {
     let viewportH = $('.book-viewport').height();
     let isMobile = viewportW < 768;
     
-    // Dejamos margen seguro
     let maxW = viewportW * 0.95;
     let maxH = viewportH * 0.95;
-
     let finalW, finalH;
 
     if (isMobile) {
-        // MÓVIL:
         finalH = maxH;
         finalW = finalH * PAGE_RATIO;
-
-        if (finalW > maxW) {
-            finalW = maxW;
-            finalH = finalW / PAGE_RATIO;
-        }
+        if (finalW > maxW) { finalW = maxW; finalH = finalW / PAGE_RATIO; }
         return { width: finalW, height: finalH, display: 'single' };
     } else {
-        // ESCRITORIO:
         let spreadRatio = PAGE_RATIO * 2;
         finalH = maxH;
         finalW = finalH * spreadRatio;
-
-        if (finalW > maxW) {
-            finalW = maxW;
-            finalH = finalW / spreadRatio;
-        }
+        if (finalW > maxW) { finalW = maxW; finalH = finalW / spreadRatio; }
         return { width: finalW, height: finalH, display: 'double' };
     }
 }
 
+function adjustHardPages() {
+    const size = flipbook.turn('size');
+    $('#flipbook .page.hard').css({
+        width: (size.width / 2) + 'px',
+        height: size.height + 'px',
+        margin: '0 auto'
+    });
+}
+
 function updateUI(page) {
     let total = flipbook.turn('pages');
-    
-    // 1. Texto
     let label = `Página ${page} / ${total}`;
     if (page === 1) label = "Portada";
     if (page === total) label = "Contraportada";
     $('#pageIndicator').text(label);
 
-    // 2. Barra de Progreso
     let percentage = (page / total) * 100;
     $('#progressBar').css('width', `${percentage}%`);
 
-    // 3. Botones
     if (page === 1) $('#prevBtn').hide(); else $('#prevBtn').show();
     if (page === total) { $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); } 
     else { $('#nextBtn').show(); $('#restartBtn').hide(); }
