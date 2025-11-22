@@ -99,3 +99,21 @@ body {
     .book-viewport { padding: 10px; align-items: center; }
     .progress-bar-bg { display: block; }
 }
+
+#flipbook .page {
+  background-color: transparent !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center center !important;
+}
+
+/* Portada y contraportada */
+#flipbook .page.hard {
+  width: 50% !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  background-size: contain !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
