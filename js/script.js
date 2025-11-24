@@ -1,8 +1,7 @@
 /*
-  FOCO Magazine - V6 Progress Bar & Cover Fix
-  - Portadas forzadas a 'contain' vía CSS.
-  - Barra de progreso minimalista en móvil.
-  - Cálculo de espacio móvil ajustado.
+  FOCO Magazine - V7 Contain Strategy
+  - CSS force 'contain' para evitar zoom en portada.
+  - Barra de progreso funcional.
 */
 
 const config = {
@@ -14,10 +13,11 @@ let totalPages = config.endPage - config.startPage + 1;
 let isAnimating = false;
 let audioUnlocked = false;
 
-// Relación de aspecto exacta de tus imágenes
+// Ratio exacto de tus imágenes (603 / 796)
 const PAGE_RATIO = 0.758; 
 
 $(document).ready(function() {
+    
     let images = [];
     for (let i = 0; i < totalPages; i++) {
         images.push(`${config.path}${config.startPage + i}${config.ext}`);
@@ -35,10 +35,9 @@ $(document).ready(function() {
 
 function initBook(images) {
     images.forEach((src, i) => {
-        // Asignamos 'hard' a la primera y última
         let className = (i === 0 || i === images.length - 1) ? 'hard' : 'page';
         if(i > 0 && i < images.length - 1) className += (i % 2 === 0) ? ' odd' : ' even';
-        
+        // El estilo background-image se encarga de todo
         flipbook.append(`<div class="${className}" style="background-image:url('${src}')"></div>`);
     });
 
@@ -61,9 +60,8 @@ function initBook(images) {
     });
 
     flipbook.animate({opacity: 1}, 500);
-    updateUI(1); // Primera actualización
+    updateUI(1);
 
-    // Controles
     $('#prevBtn').click(() => { if (!isAnimating) flipbook.turn('previous'); });
     $('#nextBtn').click(() => { if (!isAnimating) flipbook.turn('next'); });
     $('#restartBtn').click(() => { if (!isAnimating) { playSound('restart'); flipbook.turn('page', 1); } });
@@ -87,15 +85,15 @@ function calculateExactSize() {
     let viewportH = $('.book-viewport').height();
     let isMobile = viewportW < 768;
     
-    let maxW = viewportW * 0.96; // Margen lateral seguro
+    // Dejamos margen seguro
+    let maxW = viewportW * 0.95;
+    let maxH = viewportH * 0.95;
 
     let finalW, finalH;
 
     if (isMobile) {
-        // MÓVIL: Usamos menos altura para dejar espacio a la barra de progreso
-        let mobileMaxH = viewportH * 0.82; // Dejamos ~18% de espacio abajo
-        
-        finalH = mobileMaxH;
+        // MÓVIL:
+        finalH = maxH;
         finalW = finalH * PAGE_RATIO;
 
         if (finalW > maxW) {
@@ -104,11 +102,9 @@ function calculateExactSize() {
         }
         return { width: finalW, height: finalH, display: 'single' };
     } else {
-        // ESCRITORIO
-        let desktopMaxH = viewportH * 0.96;
+        // ESCRITORIO:
         let spreadRatio = PAGE_RATIO * 2;
-
-        finalH = desktopMaxH;
+        finalH = maxH;
         finalW = finalH * spreadRatio;
 
         if (finalW > maxW) {
@@ -122,17 +118,17 @@ function calculateExactSize() {
 function updateUI(page) {
     let total = flipbook.turn('pages');
     
-    // 1. Actualizar Texto
+    // 1. Texto
     let label = `Página ${page} / ${total}`;
     if (page === 1) label = "Portada";
     if (page === total) label = "Contraportada";
     $('#pageIndicator').text(label);
 
-    // 2. Actualizar Barra de Progreso (Nuevo)
+    // 2. Barra de Progreso
     let percentage = (page / total) * 100;
     $('#progressBar').css('width', `${percentage}%`);
 
-    // 3. Actualizar Botones
+    // 3. Botones
     if (page === 1) $('#prevBtn').hide(); else $('#prevBtn').show();
     if (page === total) { $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); } 
     else { $('#nextBtn').show(); $('#restartBtn').hide(); }
@@ -149,7 +145,7 @@ function preloadImages(urls) {
                 loaded++; if (loaded === urls.length) resolve();
             };
         });
-        setTimeout(resolve, 6000); 
+        setTimeout(resolve, 5000); 
     });
 }
 
