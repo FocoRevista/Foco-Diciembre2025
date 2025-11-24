@@ -1,25 +1,28 @@
 /*
-  FOCO Magazine - V7 Contain Strategy
-  - CSS force 'contain' para evitar zoom en portada.
-  - Barra de progreso funcional.
+  FOCO Magazine - V8 Ghost Pages Strategy
+  - Rango: a-23 (Fantasma) a a-68 (Fantasma)
+  - Portada Real: a-24 (Página 2 en el sistema)
+  - Contraportada Real: a-67 (Penúltima)
+  - Contador ajustado para ignorar fantasmas
 */
 
 const config = {
-    startPage: 24, endPage: 67, path: 'pages/a-', ext: '.png'
+    // INCLUIMOS LAS FANTASMAS
+    startPage: 23, endPage: 68, path: 'pages/a-', ext: '.png'
 };
 
 let flipbook = $('#flipbook');
-let totalPages = config.endPage - config.startPage + 1;
+let totalFiles = config.endPage - config.startPage + 1; // Total de imágenes (incluyendo fantasmas)
 let isAnimating = false;
 let audioUnlocked = false;
 
-// Ratio exacto de tus imágenes (603 / 796)
+// Ratio: 603 / 796 = 0.758
 const PAGE_RATIO = 0.758; 
 
 $(document).ready(function() {
     
     let images = [];
-    for (let i = 0; i < totalPages; i++) {
+    for (let i = 0; i < totalFiles; i++) {
         images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
@@ -35,9 +38,17 @@ $(document).ready(function() {
 
 function initBook(images) {
     images.forEach((src, i) => {
+        // a-23 (i=0) y a-68 (i=last) son 'hard' (transparentes)
+        // El resto son 'page' (internas con sombra 3D)
         let className = (i === 0 || i === images.length - 1) ? 'hard' : 'page';
-        if(i > 0 && i < images.length - 1) className += (i % 2 === 0) ? ' odd' : ' even';
-        // El estilo background-image se encarga de todo
+        
+        // Añadir even/odd solo a las páginas internas para las sombras
+        if (className === 'page') {
+            // Ajuste: como empezamos en 0 (a-23), la a-24 es i=1 (impar/odd).
+            // En Turn.js, página 2 (a-24) cae a la izquierda en doble vista si la 1 está sola.
+            className += (i % 2 === 0) ? ' even' : ' odd';
+        }
+        
         flipbook.append(`<div class="${className}" style="background-image:url('${src}')"></div>`);
     });
 
@@ -59,12 +70,24 @@ function initBook(images) {
         }
     });
 
-    flipbook.animate({opacity: 1}, 500);
-    updateUI(1);
+    // Si empezamos en la página 1 (Fantasma), saltar a la 2 (Portada Real) inmediatamente
+    if(flipbook.turn('page') === 1) {
+        flipbook.turn('page', 2);
+    }
 
+    flipbook.animate({opacity: 1}, 500);
+    updateUI(2); // UI inicial basada en la portada real
+
+    // Controles
     $('#prevBtn').click(() => { if (!isAnimating) flipbook.turn('previous'); });
     $('#nextBtn').click(() => { if (!isAnimating) flipbook.turn('next'); });
-    $('#restartBtn').click(() => { if (!isAnimating) { playSound('restart'); flipbook.turn('page', 1); } });
+    $('#restartBtn').click(() => { 
+        if (!isAnimating) { 
+            playSound('restart'); 
+            // Volver a la página 2 (Portada Real), no a la 1 (Fantasma)
+            flipbook.turn('page', 2); 
+        } 
+    });
     
     $(document).keydown(e => {
         if (!isAnimating) {
@@ -81,57 +104,75 @@ function initBook(images) {
 }
 
 function calculateExactSize() {
-    let viewportW = $('.book-viewport').width();
-    let viewportH = $('.book-viewport').height();
-    let isMobile = viewportW < 768;
+    let w = $('.book-viewport').width();
+    let h = $('.book-viewport').height();
+    let isMobile = w < 768;
+    let maxW = w * 0.96;
     
-    // Dejamos margen seguro
-    let maxW = viewportW * 0.95;
-    let maxH = viewportH * 0.95;
-
     let finalW, finalH;
 
     if (isMobile) {
-        // MÓVIL:
+        let maxH = h * 0.82; // Espacio para barra progreso
         finalH = maxH;
         finalW = finalH * PAGE_RATIO;
-
-        if (finalW > maxW) {
-            finalW = maxW;
-            finalH = finalW / PAGE_RATIO;
-        }
+        if (finalW > maxW) { finalW = maxW; finalH = finalW / PAGE_RATIO; }
         return { width: finalW, height: finalH, display: 'single' };
     } else {
-        // ESCRITORIO:
+        let maxH = h * 0.96;
         let spreadRatio = PAGE_RATIO * 2;
         finalH = maxH;
         finalW = finalH * spreadRatio;
-
-        if (finalW > maxW) {
-            finalW = maxW;
-            finalH = finalW / spreadRatio;
-        }
+        if (finalW > maxW) { finalW = maxW; finalH = finalW / spreadRatio; }
         return { width: finalW, height: finalH, display: 'double' };
     }
 }
 
 function updateUI(page) {
-    let total = flipbook.turn('pages');
+    // page es el número interno de Turn.js (1 a 46)
+    // 1 = a-23 (Fantasma)
+    // 2 = a-24 (Portada Real)
+    // ...
+    // 45 = a-67 (Contraportada Real)
+    // 46 = a-68 (Fantasma)
+
+    let totalRealPages = totalFiles - 2; // Quitamos las 2 fantasmas
+    let displayPage = 0;
+    let label = "";
+
+    if (page <= 2) {
+        label = "Portada";
+    } else if (page >= totalFiles - 1) {
+        label = "Contraportada";
+    } else {
+        // Cálculo: Si estamos en pag 3 (a-25), queremos que diga "Pág 1"
+        // 3 - 2 = 1. Correcto.
+        // Si estamos en pag 4 (a-26), queremos "Pág 2".
+        // 4 - 2 = 2. Correcto.
+        displayPage = page - 2;
+        label = `Página ${displayPage}`;
+    }
     
-    // 1. Texto
-    let label = `Página ${page} / ${total}`;
-    if (page === 1) label = "Portada";
-    if (page === total) label = "Contraportada";
     $('#pageIndicator').text(label);
 
-    // 2. Barra de Progreso
-    let percentage = (page / total) * 100;
-    $('#progressBar').css('width', `${percentage}%`);
+    // Barra de Progreso (0% en portada, 100% en contraportada)
+    // Rango útil: de 2 a 45.
+    let progress = 0;
+    if (page > 2) {
+        progress = ((page - 2) / (totalFiles - 3)) * 100;
+    }
+    if (progress > 100) progress = 100;
+    $('#progressBar').css('width', `${progress}%`);
 
-    // 3. Botones
-    if (page === 1) $('#prevBtn').hide(); else $('#prevBtn').show();
-    if (page === total) { $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); } 
-    else { $('#nextBtn').show(); $('#restartBtn').hide(); }
+    // Botones
+    // Ocultar 'prev' si estamos en portada real (pag 2) o antes
+    if (page <= 2) $('#prevBtn').hide(); else $('#prevBtn').show();
+    
+    // Mostrar reiniciar si estamos en contraportada real (pag 45) o después
+    if (page >= totalFiles - 1) { 
+        $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); 
+    } else { 
+        $('#nextBtn').show(); $('#restartBtn').hide(); 
+    }
 }
 
 function preloadImages(urls) {
@@ -145,7 +186,7 @@ function preloadImages(urls) {
                 loaded++; if (loaded === urls.length) resolve();
             };
         });
-        setTimeout(resolve, 5000); 
+        setTimeout(resolve, 6000); 
     });
 }
 
