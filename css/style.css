@@ -19,11 +19,8 @@ body {
     border-top-color: white; border-radius: 50%; animation: spin 1s infinite linear; margin-bottom: 15px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loader-text {
-    color: #fff; letter-spacing: 1px; font-size: 1rem; font-weight: 300; 
-    animation: pulseText 2s infinite; text-align: center;
-}
-@keyframes pulseText { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+.loader-text { color: #fff; letter-spacing: 1px; font-size: 1rem; animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: 0.7; } }
 
 /* Layout */
 .app { flex: 1; display: flex; flex-direction: column; position: relative; }
@@ -34,34 +31,47 @@ body {
 .book-viewport {
     flex: 1; width: 100%; overflow: hidden;
     display: flex; justify-content: center; align-items: center;
-    padding: 20px; position: relative;
+    padding: 20px;
 }
 
 #flipbook {
-    /* Sombra general */
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    /* Sombra profunda 3D detrás del libro */
+    box-shadow: 0 30px 60px rgba(0,0,0,0.8);
     transition: opacity 0.5s; opacity: 0;
 }
 
 /* === ESTÉTICA DE PÁGINAS === */
 #flipbook .page {
     background-color: #fff;
-    /* Ahora que todas son "internas", usamos 100% para llenar perfecto */
+    /* Forzamos a que la imagen llene EXACTAMENTE el contenedor calculado */
     background-size: 100% 100% !important; 
     background-repeat: no-repeat;
     background-position: center center;
 }
 
-/* Las TAPAS FANTASMA (a-23 y a-68) serán transparentes */
-#flipbook .page.hard {
-    background-color: transparent !important;
+/* PÁGINAS FANTASMA (a-23 y a-68) */
+/* Deben ser invisibles y sin sombra para no verse */
+#flipbook .page.ghost {
+    background: transparent !important;
+    background-image: none !important;
     box-shadow: none !important;
+    pointer-events: none; /* No interactuables */
 }
 
-/* Sombras internas (Volumen 3D) */
-/* Solo para las páginas que NO son hard (las reales) */
-#flipbook .page.odd:not(.hard) { box-shadow: inset 15px 0 20px -10px rgba(0,0,0,0.3); }
-#flipbook .page.even:not(.hard) { box-shadow: inset -15px 0 20px -10px rgba(0,0,0,0.3); }
+/* === SOMBRAS Y VOLUMEN 3D (RECUPERADO) === */
+/* Solo aplicamos sombra a las páginas que NO son fantasma */
+
+/* Página Izquierda (Pares en el flujo) */
+#flipbook .page.even:not(.ghost) {
+    /* Gradiente oscuro en el borde derecho (lomo) */
+    box-shadow: inset -20px 0 30px -10px rgba(0,0,0,0.4); 
+}
+
+/* Página Derecha (Impares en el flujo) */
+#flipbook .page.odd:not(.ghost) {
+    /* Gradiente oscuro en el borde izquierdo (lomo) */
+    box-shadow: inset 20px 0 30px -10px rgba(0,0,0,0.4);
+}
 
 /* Controles */
 .nav-btn {
@@ -75,16 +85,21 @@ body {
 .prev-btn { left: 20px; } .next-btn { right: 20px; }
 .restart-btn { right: 20px; display: none; background: rgba(255, 215, 0, 0.3); color: #ffd700; border-color: #ffd700; }
 
-/* Barra Progreso Móvil */
+/* Barra Móvil */
 .mobile-progress-container {
     display: none; width: 85%; height: 4px; background: rgba(255,255,255,0.2);
     margin: 0 auto 15px auto; border-radius: 2px; overflow: hidden; flex-shrink: 0;
 }
-.mobile-progress-bar { height: 100%; width: 0%; background: #ffd700; transition: width 0.3s ease-out; }
+.mobile-progress-bar { height: 100%; width: 0%; background: #ffd700; transition: width 0.3s; }
 
 @media (max-width: 768px) {
     .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
     .prev-btn { left: 10px; } .next-btn { right: 10px; }
     .book-viewport { padding: 10px 10px 5px 10px; align-items: flex-end; }
     .mobile-progress-container { display: block; }
+    
+    /* En móvil quitamos las sombras internas para que se vea limpia la imagen */
+    #flipbook .page.even:not(.ghost), #flipbook .page.odd:not(.ghost) { 
+        box-shadow: none; 
+    }
 }
