@@ -1,8 +1,8 @@
 /*
-  FOCO Magazine - V11 "Perfect Spread"
-  - Layout forzado: [Ghost Left | Cover Right] usando Dummy Page 1.
-  - Estética recuperada.
-  - Pixel Ratio Exacto.
+  FOCO Magazine - V12 Mobile Perfection
+  - Lógica de inicio diferenciada (Móvil vs Escritorio).
+  - En Móvil inicia en página 3 (Portada Real a-24).
+  - En Escritorio inicia en página 2 (Spread Fantasma).
 */
 
 const config = {
@@ -10,28 +10,21 @@ const config = {
 };
 
 let flipbook = $('#flipbook');
-// Total de imágenes reales (23 a 68)
 let totalRealImages = config.endPage - config.startPage + 1;
 let isAnimating = false;
 let audioUnlocked = false;
 
-// 603 / 796 = 0.758
 const PAGE_RATIO = 0.758; 
 
 $(document).ready(function() {
     
-    // 1. Construir Array de Imágenes
     let images = [];
-    
-    // A) PRIMER ELEMENTO: DUMMY (Para forzar el spread correcto)
     images.push('dummy_start'); 
 
-    // B) RESTO DE IMÁGENES (23 a 68)
     for (let i = 0; i < totalRealImages; i++) {
         images.push(`${config.path}${config.startPage + i}${config.ext}`);
     }
 
-    // 2. Precarga (Solo las reales)
     let realImagesToLoad = images.filter(img => img !== 'dummy_start');
     
     preloadImages(realImagesToLoad).then(() => {
@@ -46,32 +39,31 @@ $(document).ready(function() {
 
 function initBook(images) {
     images.forEach((src, i) => {
-        // i=0 es el dummy. i=1 es a-23. i=2 es a-24.
-        
         if (src === 'dummy_start') {
-            // PÁGINA 1: INVISIBLE (Ocupa el slot derecho inicial)
             flipbook.append(`<div class="ignore"></div>`);
         } else {
-            // DETECTAR SI ES FANTASMA VISUAL (a-23 y a-68)
-            // src termina en a-23.png o a-68.png
             let isGhost = src.includes('a-23') || src.includes('a-68');
-            
             let className = isGhost ? 'ghost' : 'page';
-            
-            // Añadir clases para sombras (Even/Odd)
-            // En este array modificado:
-            // i=1 (a-23) -> Pág 2 (Turn.js) -> Izquierda (Even)
-            // i=2 (a-24) -> Pág 3 (Turn.js) -> Derecha (Odd)
-            // Coincide: Índice par del array = Odd Page. Índice impar = Even Page.
             if (!isGhost) {
                 className += (i % 2 === 0) ? ' odd' : ' even';
             }
-
             flipbook.append(`<div class="${className}" style="background-image:url('${src}')"></div>`);
         }
     });
 
     let size = calculateExactSize();
+    let isMobile = $(window).width() < 768;
+
+    // LÓGICA DE INICIO INTELIGENTE
+    // Escritorio (Double): Pág 1(Dummy) | Pág 2(a-23). Queremos ver el spread [2-3] inicialmente?
+    // No, queremos [Dummy | a-23] a la izquierda? No.
+    // Queremos ver la portada (a-24) a la derecha.
+    // Pág 1: Dummy (R)
+    // Pág 2: a-23 (L) - Pág 3: a-24 (R).
+    // Por defecto Turn.js en double muestra [2][3] si le dices page 2.
+    
+    // MÓVIL: Queremos ver a-24 directo. Es la página 3.
+    let startPage = isMobile ? 3 : 2;
 
     flipbook.turn({
         width: size.width,
@@ -82,7 +74,7 @@ function initBook(images) {
         acceleration: true,
         elevation: 50,
         duration: 1000,
-        page: 2, // <--- INICIAR EN PÁGINA 2 (Donde está a-23 | a-24)
+        page: startPage, // <--- INICIO DINÁMICO
         when: {
             start: function() { isAnimating = true; playSound('flip'); },
             turned: function(e, page) { isAnimating = false; updateUI(page); },
@@ -91,15 +83,16 @@ function initBook(images) {
     });
 
     flipbook.animate({opacity: 1}, 500);
-    updateUI(2); 
+    updateUI(startPage); 
 
-    // Controles
     $('#prevBtn').click(() => { if (!isAnimating) flipbook.turn('previous'); });
     $('#nextBtn').click(() => { if (!isAnimating) flipbook.turn('next'); });
     $('#restartBtn').click(() => { 
         if (!isAnimating) { 
             playSound('restart'); 
-            flipbook.turn('page', 2); // Volver al inicio visual (Pág 2)
+            // Al reiniciar, respetar la lógica móvil/escritorio
+            let restartPage = $(window).width() < 768 ? 3 : 2;
+            flipbook.turn('page', restartPage); 
         } 
     });
     
@@ -126,7 +119,8 @@ function calculateExactSize() {
     let finalW, finalH;
 
     if (isMobile) {
-        let maxH = h * 0.85;
+        // MÓVIL: Usar más altura para centrar mejor
+        let maxH = h * 0.90; 
         finalH = maxH;
         finalW = finalH * PAGE_RATIO;
         if (finalW > maxW) { finalW = maxW; finalH = finalW / PAGE_RATIO; }
@@ -142,29 +136,26 @@ function calculateExactSize() {
 }
 
 function updateUI(page) {
-    // Ajuste de lógica visual debido al Dummy en Pág 1
-    // Pág 1 = Dummy
-    // Pág 2 = a-23 (Fantasma)
-    // Pág 3 = a-24 (Portada Real) -> Queremos que esta sea la "Portada"
-    
+    // Ajuste visual de índices
     let totalPagesInTurn = flipbook.turn('pages');
     let label = "";
     let percentage = 0;
+    
+    // En móvil la portada es la página 3 (interna 24).
+    // En escritorio es parte del spread 2-3.
+    let coverThreshold = 3; 
 
-    if (page <= 3) {
+    if (page <= coverThreshold) {
         label = "Portada";
         percentage = 0;
     } else if (page >= totalPagesInTurn - 1) {
         label = "Contraportada";
         percentage = 100;
     } else {
-        // Cálculo: Pág 4 (a-25) debería ser "Pág 1".
-        // 4 - 3 = 1.
-        let displayPage = page - 3;
+        let displayPage = page - 3; // a-25 es la 4ta en Turn.js -> Pág 1
         label = `Página ${displayPage}`;
         
-        // Progreso
-        let totalContentPages = totalPagesInTurn - 4; // Quitamos dummy, 23, 24, y las finales
+        let totalContentPages = totalPagesInTurn - 5; 
         percentage = (displayPage / totalContentPages) * 100;
     }
     
@@ -173,10 +164,8 @@ function updateUI(page) {
     $('#progressBar').css('width', `${percentage}%`);
 
     // Botones
-    // Bloquear retroceso si estamos en el spread inicial (2-3)
-    if (page <= 3) $('#prevBtn').hide(); else $('#prevBtn').show();
+    if (page <= coverThreshold) $('#prevBtn').hide(); else $('#prevBtn').show();
     
-    // Mostrar restart al final
     if (page >= totalPagesInTurn - 1) { 
         $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); 
     } else { 
