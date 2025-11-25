@@ -38,7 +38,7 @@ body {
     transition: opacity 0.5s; opacity: 0;
 }
 
-/* === ESTÉTICA DE PÁGINAS (LA CLAVE VISUAL) === */
+/* === ESTÉTICA DE PÁGINAS === */
 #flipbook .page {
     background-color: #fff;
     background-size: 100% 100% !important; 
@@ -46,25 +46,18 @@ body {
     background-position: center center;
 }
 
-/* CAPAS DE SOMBRA Y VOLUMEN (OVERLAYS) */
-/* Usamos pseudo-elementos para dibujar sombras ENCIMA de la imagen */
-
-/* Página Izquierda (Pares): Sombra en el borde derecho (lomo) */
 #flipbook .page.even::after {
     content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 100%;
     background: linear-gradient(to left, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 5%, rgba(0,0,0,0) 15%);
     pointer-events: none;
 }
 
-/* Página Derecha (Impares): Sombra en el borde izquierdo (lomo) */
 #flipbook .page.odd::after {
     content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
     background: linear-gradient(to right, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 5%, rgba(0,0,0,0) 15%);
     pointer-events: none;
 }
 
-/* PÁGINAS FANTASMA/INVISIBLES */
-/* El "dummy" inicial y las fantasmas a-23/a-68 */
 #flipbook .page.ignore, 
 #flipbook .page.ghost {
     background: transparent !important;
@@ -98,8 +91,13 @@ body {
 @media (max-width: 768px) {
     .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
     .prev-btn { left: 10px; } .next-btn { right: 10px; }
-    .book-viewport { padding: 10px 10px 0 10px; align-items: flex-end; }
-    .mobile-progress-container { display: block; }
-    /* En móvil quitamos sombras internas para limpieza visual */
+    
+    /* CORRECCIÓN: Centrado vertical mejorado en móvil */
+    .book-viewport { 
+        padding: 20px 10px; 
+        align-items: center; /* Centrar verticalmente, no abajo */
+    }
+    
+    .mobile-progress-container { display: block; margin-bottom: 15px; }
     #flipbook .page::after { display: none; }
 }
