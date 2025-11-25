@@ -19,9 +19,13 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">FOCO</div>
+      <div class="header-controls">
+          <button id="btnZoom" class="icon-btn" title="Zoom"><span class="material-icons-round">zoom_in</span></button>
+          <button id="btnFull" class="icon-btn" title="Pantalla Completa"><span class="material-icons-round">fullscreen</span></button>
+      </div>
     </header>
 
-    <div class="book-viewport">
+    <div class="book-viewport" id="viewport">
         <div id="flipbook"></div>
 
         <button class="nav-btn prev-btn" id="prevBtn"><span class="material-icons-round">chevron_left</span></button>
