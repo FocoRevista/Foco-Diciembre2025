@@ -24,18 +24,40 @@ body {
 
 /* Layout */
 .app { flex: 1; display: flex; flex-direction: column; position: relative; }
-.topbar { padding: 15px; background: rgba(0,0,0,0.8); text-align: center; z-index: 100; backdrop-filter: blur(10px); }
+
+/* Topbar con Flexbox para separar Logo y Controles */
+.topbar { 
+    padding: 10px 20px; background: rgba(0,0,0,0.8); 
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 100; backdrop-filter: blur(10px); 
+}
 .brand { font-weight: 900; letter-spacing: 3px; font-size: 1.2rem; }
+
+/* Estilos Botones Superiores (Minimalistas) */
+.header-controls { display: flex; gap: 15px; }
+.icon-btn {
+    background: transparent; border: none; color: #fff; cursor: pointer;
+    padding: 5px; border-radius: 5px; transition: background 0.2s;
+    display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.1); }
+.icon-btn span { font-size: 24px; }
 
 /* Área del Libro */
 .book-viewport {
     flex: 1; width: 100%; overflow: hidden;
     display: flex; justify-content: center; align-items: center;
     padding: 20px; position: relative;
+    /* Para el Zoom */
+    transform-origin: center center;
 }
 
+/* Flipbook */
 #flipbook {
     transition: opacity 0.5s; opacity: 0;
+    /* Transición suave para cuando activamos el Zoom */
+    transition: transform 0.3s ease-out;
+    transform-origin: center center; 
 }
 
 /* === ESTÉTICA DE PÁGINAS === */
@@ -51,24 +73,17 @@ body {
     background: linear-gradient(to left, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 5%, rgba(0,0,0,0) 15%);
     pointer-events: none;
 }
-
 #flipbook .page.odd::after {
     content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
     background: linear-gradient(to right, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 5%, rgba(0,0,0,0) 15%);
     pointer-events: none;
 }
-
-#flipbook .page.ignore, 
-#flipbook .page.ghost {
-    background: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
+#flipbook .page.ignore, #flipbook .page.ghost {
+    background: transparent !important; background-image: none !important; box-shadow: none !important;
 }
-#flipbook .page.ignore::after, 
-#flipbook .page.ghost::after { display: none; }
+#flipbook .page.ignore::after, #flipbook .page.ghost::after { display: none; }
 
-
-/* Controles */
+/* Controles de Navegación */
 .nav-btn {
     position: absolute; top: 50%; transform: translateY(-50%);
     width: 50px; height: 50px; border-radius: 50%;
@@ -91,13 +106,7 @@ body {
 @media (max-width: 768px) {
     .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
     .prev-btn { left: 10px; } .next-btn { right: 10px; }
-    
-    /* CORRECCIÓN: Centrado vertical mejorado en móvil */
-    .book-viewport { 
-        padding: 20px 10px; 
-        align-items: center; /* Centrar verticalmente, no abajo */
-    }
-    
-    .mobile-progress-container { display: block; margin-bottom: 15px; }
+    .book-viewport { padding: 10px 10px 0 10px; align-items: flex-end; }
+    .mobile-progress-container { display: block; }
     #flipbook .page::after { display: none; }
 }
