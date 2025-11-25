@@ -1,8 +1,8 @@
 /*
-  FOCO Magazine - V12 Mobile Perfection
-  - Lógica de inicio diferenciada (Móvil vs Escritorio).
-  - En Móvil inicia en página 3 (Portada Real a-24).
-  - En Escritorio inicia en página 2 (Spread Fantasma).
+  FOCO Magazine - V13 Final + Zoom & Fullscreen
+  - Incluye lógica de "Páginas Fantasma" (Ghost Pages).
+  - Incluye Zoom libre (Pan & Zoom) sin romper Turn.js.
+  - Pantalla completa nativa.
 */
 
 const config = {
@@ -14,6 +14,14 @@ let totalRealImages = config.endPage - config.startPage + 1;
 let isAnimating = false;
 let audioUnlocked = false;
 
+// Variables para el Zoom
+let zoomLevel = 1;
+let isZoomed = false;
+let panX = 0, panY = 0;
+let startX = 0, startY = 0;
+let isDragging = false;
+
+// Ratio Exacto
 const PAGE_RATIO = 0.758; 
 
 $(document).ready(function() {
@@ -35,6 +43,22 @@ $(document).ready(function() {
     $(document).on('touchstart click', function() {
         if(!audioUnlocked) { unlockAudio(); audioUnlocked = true; }
     });
+
+    // --- NUEVOS EVENTOS ZOOM Y FULLSCREEN ---
+    $('#btnFull').click(toggleFullscreen);
+    $('#btnZoom').click(toggleZoom);
+
+    // Eventos de arrastre (Pan) para el Zoom
+    let viewport = document.getElementById('viewport');
+    
+    viewport.addEventListener('mousedown', startDrag);
+    viewport.addEventListener('mousemove', doDrag);
+    viewport.addEventListener('mouseup', endDrag);
+    viewport.addEventListener('mouseleave', endDrag);
+    
+    viewport.addEventListener('touchstart', startDrag, {passive: false});
+    viewport.addEventListener('touchmove', doDrag, {passive: false});
+    viewport.addEventListener('touchend', endDrag);
 });
 
 function initBook(images) {
@@ -53,16 +77,6 @@ function initBook(images) {
 
     let size = calculateExactSize();
     let isMobile = $(window).width() < 768;
-
-    // LÓGICA DE INICIO INTELIGENTE
-    // Escritorio (Double): Pág 1(Dummy) | Pág 2(a-23). Queremos ver el spread [2-3] inicialmente?
-    // No, queremos [Dummy | a-23] a la izquierda? No.
-    // Queremos ver la portada (a-24) a la derecha.
-    // Pág 1: Dummy (R)
-    // Pág 2: a-23 (L) - Pág 3: a-24 (R).
-    // Por defecto Turn.js en double muestra [2][3] si le dices page 2.
-    
-    // MÓVIL: Queremos ver a-24 directo. Es la página 3.
     let startPage = isMobile ? 3 : 2;
 
     flipbook.turn({
@@ -74,7 +88,7 @@ function initBook(images) {
         acceleration: true,
         elevation: 50,
         duration: 1000,
-        page: startPage, // <--- INICIO DINÁMICO
+        page: startPage,
         when: {
             start: function() { isAnimating = true; playSound('flip'); },
             turned: function(e, page) { isAnimating = false; updateUI(page); },
@@ -85,30 +99,133 @@ function initBook(images) {
     flipbook.animate({opacity: 1}, 500);
     updateUI(startPage); 
 
-    $('#prevBtn').click(() => { if (!isAnimating) flipbook.turn('previous'); });
-    $('#nextBtn').click(() => { if (!isAnimating) flipbook.turn('next'); });
+    $('#prevBtn').click(() => { if (!isAnimating && !isZoomed) flipbook.turn('previous'); });
+    $('#nextBtn').click(() => { if (!isAnimating && !isZoomed) flipbook.turn('next'); });
     $('#restartBtn').click(() => { 
-        if (!isAnimating) { 
+        if (!isAnimating && !isZoomed) { 
             playSound('restart'); 
-            // Al reiniciar, respetar la lógica móvil/escritorio
             let restartPage = $(window).width() < 768 ? 3 : 2;
             flipbook.turn('page', restartPage); 
         } 
     });
     
     $(document).keydown(e => {
-        if (!isAnimating) {
+        if (!isAnimating && !isZoomed) {
             if (e.keyCode == 37) flipbook.turn('previous');
             if (e.keyCode == 39) flipbook.turn('next');
         }
     });
 
     $(window).resize(() => {
+        if(isZoomed) resetZoom(); // Resetear zoom al cambiar tamaño
         let newSize = calculateExactSize();
         flipbook.turn('size', newSize.width, newSize.height);
         flipbook.turn('display', newSize.display);
     });
 }
+
+// --- FUNCIONES ZOOM Y FULLSCREEN ---
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(e => {});
+        $('#btnFull span').text('fullscreen_exit');
+    } else {
+        document.exitFullscreen();
+        $('#btnFull span').text('fullscreen');
+    }
+}
+
+function toggleZoom() {
+    if (isZoomed) {
+        resetZoom();
+    } else {
+        applyZoom();
+    }
+}
+
+function applyZoom() {
+    isZoomed = true;
+    zoomLevel = 2.5; // Nivel de aumento
+    panX = 0;
+    panY = 0;
+    
+    // Desactivar flip de Turn.js para que no interfiera
+    flipbook.turn('disable', true);
+    
+    // Ocultar flechas de navegación para limpiar vista
+    $('.nav-btn').fadeOut();
+    
+    // Cambiar icono
+    $('#btnZoom span').text('zoom_out');
+    
+    // Aplicar transformación CSS
+    updateTransform();
+    
+    // Cursor manita
+    $('#viewport').css('cursor', 'grab');
+}
+
+function resetZoom() {
+    isZoomed = false;
+    zoomLevel = 1;
+    panX = 0;
+    panY = 0;
+    
+    // Reactivar Turn.js
+    flipbook.turn('disable', false);
+    
+    // Mostrar flechas según corresponda
+    updateUI(flipbook.turn('page'));
+    
+    // Cambiar icono
+    $('#btnZoom span').text('zoom_in');
+    
+    // Reset CSS
+    flipbook.css('transform', `scale(1) translate(0px, 0px)`);
+    $('#viewport').css('cursor', 'default');
+}
+
+// --- LÓGICA DE ARRASTRE (PAN) ---
+function startDrag(e) {
+    if (!isZoomed) return;
+    isDragging = true;
+    
+    // Obtener coordenadas X/Y (mouse o touch)
+    startX = (e.type === 'touchstart') ? e.touches[0].clientX : e.clientX;
+    startY = (e.type === 'touchstart') ? e.touches[0].clientY : e.clientY;
+    
+    // Ajustar por el desplazamiento actual
+    startX -= panX;
+    startY -= panY;
+    
+    $('#viewport').css('cursor', 'grabbing');
+}
+
+function doDrag(e) {
+    if (!isDragging || !isZoomed) return;
+    e.preventDefault(); // Evitar scroll nativo del navegador
+    
+    let x = (e.type === 'touchmove') ? e.touches[0].clientX : e.clientX;
+    let y = (e.type === 'touchmove') ? e.touches[0].clientY : e.clientY;
+    
+    panX = x - startX;
+    panY = y - startY;
+    
+    updateTransform();
+}
+
+function endDrag() {
+    isDragging = false;
+    if (isZoomed) $('#viewport').css('cursor', 'grab');
+}
+
+function updateTransform() {
+    // Aplicamos el zoom y el desplazamiento al contenedor del libro
+    flipbook.css('transform', `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`);
+}
+
+// --- FIN FUNCIONES ZOOM ---
 
 function calculateExactSize() {
     let w = $('.book-viewport').width();
@@ -119,7 +236,6 @@ function calculateExactSize() {
     let finalW, finalH;
 
     if (isMobile) {
-        // MÓVIL: Usar más altura para centrar mejor
         let maxH = h * 0.90; 
         finalH = maxH;
         finalW = finalH * PAGE_RATIO;
@@ -136,13 +252,9 @@ function calculateExactSize() {
 }
 
 function updateUI(page) {
-    // Ajuste visual de índices
     let totalPagesInTurn = flipbook.turn('pages');
     let label = "";
     let percentage = 0;
-    
-    // En móvil la portada es la página 3 (interna 24).
-    // En escritorio es parte del spread 2-3.
     let coverThreshold = 3; 
 
     if (page <= coverThreshold) {
@@ -152,9 +264,8 @@ function updateUI(page) {
         label = "Contraportada";
         percentage = 100;
     } else {
-        let displayPage = page - 3; // a-25 es la 4ta en Turn.js -> Pág 1
+        let displayPage = page - 3; 
         label = `Página ${displayPage}`;
-        
         let totalContentPages = totalPagesInTurn - 5; 
         percentage = (displayPage / totalContentPages) * 100;
     }
@@ -163,13 +274,13 @@ function updateUI(page) {
     if(percentage > 100) percentage = 100;
     $('#progressBar').css('width', `${percentage}%`);
 
-    // Botones
-    if (page <= coverThreshold) $('#prevBtn').hide(); else $('#prevBtn').show();
-    
-    if (page >= totalPagesInTurn - 1) { 
-        $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); 
-    } else { 
-        $('#nextBtn').show(); $('#restartBtn').hide(); 
+    if(!isZoomed) { // Solo mostrar botones si NO hay zoom
+        if (page <= coverThreshold) $('#prevBtn').hide(); else $('#prevBtn').show();
+        if (page >= totalPagesInTurn - 1) { 
+            $('#nextBtn').hide(); $('#restartBtn').css('display', 'flex'); 
+        } else { 
+            $('#nextBtn').show(); $('#restartBtn').hide(); 
+        }
     }
 }
 
