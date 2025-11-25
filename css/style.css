@@ -24,12 +24,23 @@ body {
 
 /* Layout */
 .app { flex: 1; display: flex; flex-direction: column; position: relative; }
-.topbar { padding: 15px; background: rgba(0,0,0,0.8); text-align: center; z-index: 100; backdrop-filter: blur(10px); }
+
+/* Topbar */
+.topbar { 
+    padding: 10px 20px; background: rgba(0,0,0,0.8); 
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 100; backdrop-filter: blur(10px); 
+}
 .brand { font-weight: 900; letter-spacing: 3px; font-size: 1.2rem; }
 
-/* Controles Header */
-.header-controls { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); display: flex; gap: 10px; }
-.icon-btn { background: transparent; border: none; color: #fff; cursor: pointer; padding: 5px; }
+/* Botones Header (Zoom/Full) */
+.header-controls { display: flex; gap: 15px; }
+.icon-btn {
+    background: transparent; border: none; color: #fff; cursor: pointer;
+    padding: 5px; border-radius: 5px; transition: background 0.2s;
+    display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.1); }
 .icon-btn span { font-size: 24px; }
 
 /* Área del Libro */
@@ -77,6 +88,7 @@ body {
     color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: all 0.2s; z-index: 200; backdrop-filter: blur(5px);
 }
+.nav-btn:hover { background: rgba(255,255,255,0.25); transform: translateY(-50%) scale(1.1); }
 .prev-btn { left: 20px; } .next-btn { right: 20px; }
 .restart-btn { right: 20px; display: none; background: rgba(255, 215, 0, 0.2); color: #ffd700; border-color: #ffd700; }
 
@@ -88,9 +100,19 @@ body {
 .mobile-progress-bar { height: 100%; width: 0%; background: #ffd700; transition: width 0.3s ease-out; }
 .bottom-bar { text-align: center; padding-bottom: 15px; font-size: 0.8rem; color: #888; }
 
-/* === MÓVIL CORREGIDO === */
+/* === MÓVIL === */
 @media (max-width: 768px) {
+    /* Ocultar botón Fullscreen en móvil */
+    #btnFull { display: none; }
+
     .nav-btn { width: 40px; height: 40px; background: rgba(0,0,0,0.6); }
     .prev-btn { left: 10px; } .next-btn { right: 10px; }
     
-    /*
+    .book-viewport { 
+        padding: 10px; 
+        align-items: center; 
+    }
+    
+    .mobile-progress-container { display: block; margin-bottom: 15px; }
+    #flipbook .page::after { display: none; }
+}
